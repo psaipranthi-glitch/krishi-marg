@@ -145,5 +145,50 @@ def price_preview(commodity:str,grade:str='A',quantity_kg:float=100,distance_km:
     if not c: raise HTTPException(404,'Commodity not found')
     return calculate(c.base_price,grade,distance_km,handling,freshness_pct)
 
+@r.get('/telemetry')
+def telemetry(db:Session=Depends(get_db)):
+    logs = db.scalars(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(15)).all()
+    order_count = db.query(Order).count()
+    lot_count = db.query(ProduceLot).count()
+    vehicle_count = db.query(Vehicle).count()
+    
+    events = []
+    for l in logs:
+        events.append({
+            'time': l.created_at.strftime('%H:%M:%S'),
+            'type': l.entity_type.upper(),
+            'action': l.action,
+            'details': l.details or 'DB transaction executed successfully'
+        })
+        
+    return {
+        'status': 'ONLINE',
+        'db_orders_count': order_count,
+        'db_lots_count': lot_count,
+        'active_vehicles': vehicle_count,
+        'ml_engine': 'Scikit-Learn RandomForest & GradientBoost',
+        'vrp_engine': 'Google OR-Tools Solver v9.8',
+        'db_storage': 'SQLite /tmp/krishi_marg.db',
+        'recent_events': events
+    }
+
+@r.post('/simulate-spoilage')
+def simulate_spoilage(db:Session=Depends(get_db)):
+    lots = db.scalars(select(ProduceLot)).all()
+    updated = []
+    for lot in lots:
+        c = db.get(Commodity, lot.commodity_id)
+        lot.temperature_c += 1.5
+        p = predict(c, lot.harvest_date, lot.temperature_c, 2.0, 0, lot.grade)
+        lot.freshness_pct = p['freshness_pct']
+        lot.remaining_life_days = p['remaining_life_days']
+        db.add(AuditLog(entity_type='simulation', entity_id=lot.id, action='SPOILAGE_SIMULATION', details=f'Lot {lot.lot_code} temp increased to {lot.temperature_c:.1f}°C, freshness updated to {lot.freshness_pct}%'))
+        updated.append({'lot_code': lot.lot_code, 'commodity': c.name if c else 'Tomato', 'new_temp_c': lot.temperature_c, 'freshness_pct': lot.freshness_pct})
+    
+    notify(db, 'Ambient temperature simulation completed. Freshness predictions re-evaluated by ML.')
+    db.commit()
+    return {'status': 'SUCCESS', 'message': 'Simulated temperature rise and re-calculated ML decay scores across all produce lots.', 'lots': updated}
+
+
 
 
