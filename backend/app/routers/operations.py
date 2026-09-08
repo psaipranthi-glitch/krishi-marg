@@ -189,6 +189,25 @@ def simulate_spoilage(db:Session=Depends(get_db)):
     db.commit()
     return {'status': 'SUCCESS', 'message': 'Simulated temperature rise and re-calculated ML decay scores across all produce lots.', 'lots': updated}
 
+@r.get('/database-proof')
+def database_proof(db:Session=Depends(get_db)):
+    orders = db.scalars(select(Order).order_by(Order.id.desc()).limit(10)).all()
+    lots = db.scalars(select(ProduceLot).order_by(ProduceLot.id.desc()).limit(10)).all()
+    inspections = db.scalars(select(QualityInspection).order_by(QualityInspection.id.desc()).limit(10)).all()
+    aggregations = db.scalars(select(DemandAggregation).order_by(DemandAggregation.id.desc()).limit(10)).all()
+    routes = db.scalars(select(Route).order_by(Route.id.desc()).limit(10)).all()
+    audit_logs = db.scalars(select(AuditLog).order_by(AuditLog.id.desc()).limit(15)).all()
+    
+    return {
+        "orders_table": [{"id": o.id, "code": o.order_code, "status": o.status, "total": o.total_amount, "created_at": str(o.created_at)} for o in orders],
+        "produce_lots_table": [{"id": l.id, "lot_code": l.lot_code, "grade": l.grade, "freshness_pct": l.freshness_pct, "remaining_life": l.remaining_life_days, "temp_c": l.temperature_c, "status": l.status} for l in lots],
+        "quality_inspections_table": [{"id": q.id, "lot_id": q.lot_id, "visual": q.visual_quality, "damage_pct": q.damage_pct, "recommended": q.recommended_grade, "confirmed": q.confirmed_grade, "created_at": str(q.created_at)} for q in inspections],
+        "demand_aggregations_table": [{"id": a.id, "commodity_id": a.commodity_id, "demand_kg": a.demand_kg, "supply_kg": a.available_supply_kg, "fulfillment_pct": a.fulfillment_pct, "created_at": str(a.created_at)} for a in aggregations],
+        "routes_table": [{"id": r.id, "route_code": r.route_code, "distance_km": r.distance_km, "eta_min": r.eta_min, "created_at": str(r.created_at)} for r in routes],
+        "audit_logs_table": [{"id": log.id, "entity": log.entity_type, "action": log.action, "details": log.details, "time": log.created_at.strftime('%Y-%m-%d %H:%M:%S')} for log in audit_logs]
+    }
+
+
 
 
 
