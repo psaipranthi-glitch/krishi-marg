@@ -9,7 +9,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,6 +30,7 @@ def health():
 
 from app.routers import auth, orders, dashboard, map, ai, operations, demo, traceability
 from app.websocket import tracking
+from app.seed.seed import seed
 import asyncio
 
 app.include_router(auth.r)
@@ -45,11 +46,16 @@ app.websocket("/ws/tracking")(tracking.endpoint)
 
 @app.on_event("startup")
 async def startup():
+    try:
+        seed()
+    except Exception as e:
+        print("Auto seed notice:", e)
     asyncio.create_task(tracking.broadcast_demo())
     print("=" * 60)
     print("KRISHI MARG API STARTED")
     print("API:  http://127.0.0.1:8000")
     print("Docs: http://127.0.0.1:8000/docs")
     print("=" * 60)
+
 
 

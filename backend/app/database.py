@@ -1,3 +1,4 @@
+import os, tempfile
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from .config import settings
@@ -5,10 +6,16 @@ from .config import settings
 class Base(DeclarativeBase):
     pass
 
-# SQLite keeps the hackathon prototype completely local: no PostgreSQL/Docker install is required.
-connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
-engine = create_engine(settings.database_url, pool_pre_ping=True, connect_args=connect_args)
+db_url = settings.database_url
+if os.environ.get("VERCEL") or not os.access(".", os.W_OK):
+    tmp_db = os.path.join(tempfile.gettempdir(), "krishi_marg.db")
+    db_url = f"sqlite:///{tmp_db}"
+
+connect_args = {"check_same_thread": False} if db_url.startswith("sqlite") else {}
+engine = create_engine(db_url, pool_pre_ping=True, connect_args=connect_args)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+Base.metadata.create_all(bind=engine)
 
 def get_db():
     db = SessionLocal()
@@ -16,3 +23,4 @@ def get_db():
         yield db
     finally:
         db.close()
+
