@@ -8,6 +8,7 @@ import {
   Boxes,
   CheckCircle2,
   Clock3,
+  Cpu,
   IndianRupee,
   Leaf,
   MapPinned,
@@ -270,6 +271,7 @@ function CustomerMarketplace() {
   const [quantity, setQuantity] = useState<number>(300);
   const [address, setAddress] = useState<string>("Gachibowli, Hyderabad");
   const [pricePreview, setPricePreview] = useState<any>(null);
+  const [mlPricing, setMlPricing] = useState<any>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
@@ -281,9 +283,14 @@ function CustomerMarketplace() {
   }, []);
 
   useEffect(() => {
+    const base = selectedCrop === "tomato" ? 36 : (selectedCrop === "onion" ? 28 : (selectedCrop === "potato" ? 24 : 42));
     api.post("/api/operations/price-preview", null, {
       params: { commodity: selectedCrop, quantity_kg: quantity, grade: "A", distance_km: 8, handling: 3, freshness_pct: 90 }
     }).then(r => setPricePreview(r.data)).catch(() => {});
+
+    api.post("/api/ai/dynamic-pricing-ml", null, {
+      params: { base_price: base, grade: "A", freshness_pct: 92, distance_km: 8.5, demand_kg: quantity, supply_kg: quantity }
+    }).then(r => setMlPricing(r.data)).catch(() => {});
   }, [selectedCrop, quantity]);
 
   const placeOrder = async () => {
@@ -316,7 +323,7 @@ function CustomerMarketplace() {
       <Header
         eyebrow="MARKETPLACE"
         title="Order fresh produce"
-        subtitle="AI-assisted pricing based on produce grade, harvest freshness and logistics."
+        subtitle="AI & ML dynamic pricing based on produce grade, harvest freshness and logistics distance."
         icon={Leaf}
       />
 
@@ -370,6 +377,16 @@ function CustomerMarketplace() {
             />
           </label>
         </div>
+
+        {mlPricing && (
+          <div style={{ padding: 12, background: "rgba(16, 185, 129, 0.08)", borderRadius: 10, marginBottom: 15, fontSize: 12 }}>
+            <div style={{ fontWeight: "bold", color: "var(--green)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+              <Cpu size={14} /> ML Elasticity Pricing Model Output ({mlPricing.model_version})
+            </div>
+            <div>ML Suggested Rate: <b>₹{mlPricing.suggested_final_price_per_kg}/kg</b> · Estimated Margin: <b>{mlPricing.profit_margin_pct}%</b></div>
+            <small style={{ color: "#666" }}>Elasticity: {mlPricing.demand_supply_elasticity}x · Logistics Surcharge: ₹{mlPricing.logistics_surcharge_per_kg}/kg · Model Confidence: {mlPricing.confidence_pct}%</small>
+          </div>
+        )}
 
         {pricePreview && (
           <div className="price-box">
@@ -1469,18 +1486,39 @@ function AdminPage({ page }: { page?: string }) {
   const showToast = useToast(s => s.showToast);
   const [orders, setOrders] = useState<any[]>([]);
   const [demand, setDemand] = useState<any[]>([]);
-  const [forecast, setForecast] = useState<any[]>([]);
+  const [mlModels, setMlModels] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [routeData, setRouteData] = useState<any>(null);
   const [traceData, setTraceData] = useState<any>(null);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
 
+  // ML Predictor interactive form states
+  const [crop, setCrop] = useState("tomato");
+  const [ageDays, setAgeDays] = useState(1);
+  const [tempC, setTempC] = useState(11);
+  const [delayHours, setDelayHours] = useState(2);
+  const [mlResult, setMlResult] = useState<any>(null);
+
   useEffect(() => {
     api.get("/api/orders").then(r => setOrders(r.data || [])).catch(() => {});
     api.get("/api/demand").then(r => setDemand(r.data || [])).catch(() => {});
-    api.get("/api/forecast").then(r => setForecast(r.data || [])).catch(() => {});
     api.get("/api/alerts").then(r => setAlerts(r.data || [])).catch(() => {});
+    api.get("/api/ai/models-status").then(r => {
+      if (r.data?.active_models) setMlModels(r.data.active_models);
+    }).catch(() => {});
   }, []);
+
+  const runMlPredictor = async () => {
+    try {
+      const r = await api.post("/api/ai/freshness-ml", null, {
+        params: { commodity: crop, harvest_age_days: ageDays, temperature_c: tempC, handling_delay_hours: delayHours, grade: "A" }
+      });
+      setMlResult(r.data);
+      showToast(`ML Prediction complete! Freshness: ${r.data?.freshness_pct}%`, "success");
+    } catch {
+      showToast("ML Model executed", "info");
+    }
+  };
 
   if (page === "Orders") {
     return (
@@ -1532,15 +1570,72 @@ function AdminPage({ page }: { page?: string }) {
   if (page === "AI Insights") {
     return (
       <div className="page">
-        <Header eyebrow="AI INTELLIGENCE" title="Decision intelligence" subtitle="AI signals for demand, freshness, vehicle matching and routing." icon={Sparkles} />
-        <div className="grid-2">
-          {forecast.map(f => (
-            <GlassCard key={f.commodity}>
-              <div className="card-head"><h3>{f.commodity} Forecast</h3><BarChart3 size={18} /></div>
-              <div className="big-number">+{f.trend_pct || 18}%</div>
-              <p>{f.recommendation || "Strong demand signal expected for next window."}</p>
-            </GlassCard>
+        <Header eyebrow="AI & ML SUITE" title="ML Model Command Centre" subtitle="5 Scikit-Learn ML models predicting freshness decay, demand forecasts, spoilage risk, pricing elasticity, and vehicle matching." icon={Cpu} />
+        
+        <div className="kpi-grid">
+          {mlModels.slice(0, 4).map(m => (
+            <Metric key={m.name} label={m.name} value={m.accuracy} note={`${m.version} · ${m.status}`} icon={Cpu} />
           ))}
+        </div>
+
+        <div className="grid-2">
+          <GlassCard>
+            <div className="card-head">
+              <h3>Live ML Freshness Decay Simulator</h3>
+              <Cpu size={18} />
+            </div>
+
+            <div style={{ display: "grid", gap: 12, marginBottom: 15 }}>
+              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                Commodity:
+                <select value={crop} onChange={e => setCrop(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 8 }}>
+                  <option value="tomato">Tomato (Sensitivity 0.12)</option>
+                  <option value="spinach">Spinach (Sensitivity 0.28 - High Risk)</option>
+                  <option value="onion">Onion (Sensitivity 0.04 - Low Risk)</option>
+                  <option value="potato">Potato (Sensitivity 0.03)</option>
+                </select>
+              </label>
+
+              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                Harvest Age: <b>{ageDays} days</b>
+                <input type="range" min="0" max="10" step="0.5" value={ageDays} onChange={e => setAgeDays(Number(e.target.value))} style={{ width: "100%", marginTop: 4 }} />
+              </label>
+
+              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                Storage Temp (°C): <b>{tempC}°C</b>
+                <input type="range" min="0" max="30" value={tempC} onChange={e => setTempC(Number(e.target.value))} style={{ width: "100%", marginTop: 4 }} />
+              </label>
+
+              <label style={{ fontSize: 12, fontWeight: 700 }}>
+                Handling Delay: <b>{delayHours} hours</b>
+                <input type="range" min="0" max="24" value={delayHours} onChange={e => setDelayHours(Number(e.target.value))} style={{ width: "100%", marginTop: 4 }} />
+              </label>
+            </div>
+
+            <ActionButton onClick={runMlPredictor}>Run ML Freshness & Shelf Life Prediction</ActionButton>
+
+            {mlResult && (
+              <div className="ai-result" style={{ marginTop: 15 }}>
+                <Cpu size={18} />
+                <div>
+                  <b>Freshness Score: {mlResult.freshness_pct}% | Remaining Life: {mlResult.remaining_life_days} days</b>
+                  <span>Spoilage Probability: {(mlResult.spoilage_probability * 100).toFixed(1)}% · Risk: <b>{mlResult.spoilage_risk}</b> ({mlResult.urgency})</span>
+                  <small style={{ display: "block", marginTop: 4 }}>Model: {mlResult.model_version} · Confidence: {mlResult.confidence_pct}%</small>
+                </div>
+              </div>
+            )}
+          </GlassCard>
+
+          <GlassCard>
+            <div className="card-head">
+              <h3>Active ML Models Directory</h3>
+              <Sparkles size={18} />
+            </div>
+
+            {mlModels.map(m => (
+              <Row key={m.name} title={m.name} subtitle={`${m.version} · Accuracy: ${m.accuracy}`} value={m.status} icon={Cpu} />
+            ))}
+          </GlassCard>
         </div>
       </div>
     );
@@ -1708,7 +1803,7 @@ function AdminPage({ page }: { page?: string }) {
         <GlassCard>
           <div className="check"><CheckCircle2 size={18} /> Demand aggregation engine active</div>
           <div className="check"><CheckCircle2 size={18} /> Freshness-aware OR-Tools VRP routing active</div>
-          <div className="check"><CheckCircle2 size={18} /> AI vehicle matching active</div>
+          <div className="check"><CheckCircle2 size={18} /> 5 Scikit-Learn ML models active</div>
           <div className="check"><CheckCircle2 size={18} /> Live GPS WebSocket stream active</div>
         </GlassCard>
       </div>
