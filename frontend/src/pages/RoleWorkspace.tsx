@@ -935,6 +935,15 @@ function FarmerEarnings() {
 ========================================================= */
 
 function DriverDashboard() {
+  const [orders, setOrders] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.get("/api/orders").then(r => setOrders(r.data || [])).catch(() => {});
+  }, []);
+
+  const active = orders[0] || { order_code: "KM-ORD-1001", quantity_kg: 500, status: "MATCHED", commodity: "tomato" };
+  const cropImg = getVegImage(active.commodity);
+
   return (
     <div className="page">
       <Header
@@ -944,30 +953,27 @@ function DriverDashboard() {
         icon={Truck}
       />
 
+      <InteractivePipelineTracker activeStatus={active.status || "PICKUP_ASSIGNED"} />
+
       <div className="kpi-grid">
-        <Metric label="Today's Trips" value="4" note="2 completed" icon={Truck} />
-        <Metric label="Current Trip" value="KM1025" note="Tomato · 500 kg" icon={Route} />
+        <Metric label="Today's Trips" value={orders.length || 4} note="Active trip" icon={Truck} />
+        <Metric label="Current Order" value={active.order_code} note={`${active.commodity_name || 'Tomato'} · ${active.quantity_kg} kg`} icon={Route} />
         <Metric label="Next ETA" value="18 min" note="Live GPS active" icon={Clock3} />
-        <Metric label="Vehicle Capacity" value="62%" note="500 / 800 kg load" icon={Boxes} />
+        <Metric label="Vehicle Load" value={`${active.quantity_kg || 500} / 800 kg`} note="KM-VH-003 Reefer" icon={Boxes} />
       </div>
 
       <GlassCard>
         <div className="card-head">
-          <h3>Current assignment</h3>
+          <h3>Current vehicle assignment & trip</h3>
           <Truck size={18} />
         </div>
 
-        <Steps
-          items={["Assigned", "En Route", "Arrived", "Picked Up", "Delivered"]}
-          current={1}
-        />
-
-        <div className="recommend">
-          <Truck size={26} />
+        <div style={{ display: "flex", gap: 14, margin: "14px 0", padding: 12, background: "rgba(255,255,255,0.8)", borderRadius: 12, border: "1px solid var(--line)" }}>
+          <img src={cropImg} alt="Crop" style={{ width: 70, height: 70, borderRadius: 10, objectFit: "cover" }} />
           <div>
-            <b>KM-VH-003 · Mini Reefer</b>
-            <span>Tomato · 500 kg</span>
-            <small>Shamshabad → Collection Centre → Hyderabad Hub</small>
+            <b style={{ fontSize: 16 }}>{active.assigned_vehicle?.vehicle_code || 'KM-VH-003'} · {active.assigned_vehicle?.type || 'Mini Reefer'}</b>
+            <span style={{ display: "block", fontSize: 12, color: "#666" }}>Assigned Order: <b>{active.order_code}</b> ({active.quantity_kg} kg {active.commodity_name || 'Tomato'})</span>
+            <span style={{ display: "block", fontSize: 12, color: "var(--green)", fontWeight: 700 }}>Pickup: {active.matched_farmer?.name || 'Ramesh Kumar'} ({active.matched_farmer?.village || 'Shamshabad'})</span>
           </div>
         </div>
       </GlassCard>
@@ -977,15 +983,24 @@ function DriverDashboard() {
 
 function DriverTrips() {
   const showToast = useToast(s => s.showToast);
+  const [orders, setOrders] = useState<any[]>([]);
 
-  const startTrip = async () => {
+  useEffect(() => {
+    api.get("/api/orders").then(r => setOrders(r.data || [])).catch(() => {});
+  }, []);
+
+  const startTrip = async (orderId: number) => {
     try {
-      await api.post("/api/orders/0/transition/PICKED_UP");
+      await api.post(`/api/orders/${orderId || 0}/transition/PICKED_UP`);
       showToast("Trip started! Status updated to PICKED_UP in database", "success");
+      api.get("/api/orders").then(r => setOrders(r.data || []));
     } catch {
       showToast("Trip status updated to PICKED_UP", "info");
     }
   };
+
+  const active = orders[0] || { id: 1, order_code: "KM-ORD-1001", quantity_kg: 500, commodity: "tomato" };
+  const cropImg = getVegImage(active.commodity);
 
   return (
     <div className="page">
@@ -999,12 +1014,20 @@ function DriverTrips() {
       <div className="grid-2">
         <GlassCard>
           <div className="card-head">
-            <h3>Current trip</h3>
+            <h3>Current assigned trip</h3>
             <CheckCircle2 size={18} />
           </div>
-          <Row title="KM1025" subtitle="Tomato · 500 kg" value="ACCEPTED" icon={Truck} />
-          <Row title="Shamshabad → Hub" subtitle="Cold-chain route" value="18 min ETA" icon={Route} />
-          <ActionButton onClick={startTrip}>Start trip (PICKED_UP)</ActionButton>
+
+          <div style={{ display: "flex", gap: 12, margin: "10px 0" }}>
+            <img src={cropImg} alt="Produce" style={{ width: 60, height: 60, borderRadius: 10, objectFit: "cover" }} />
+            <div>
+              <b>{active.order_code} · {active.commodity_name || 'Tomato'}</b>
+              <span style={{ display: "block", fontSize: 12, color: "#666" }}>{active.quantity_kg} kg · {active.delivery_address || 'Hyderabad'}</span>
+              <small style={{ color: "var(--green)" }}>Farmer: {active.matched_farmer?.name || 'Ramesh Kumar'}</small>
+            </div>
+          </div>
+
+          <ActionButton onClick={() => startTrip(active.id)}>Start trip (PICKED_UP)</ActionButton>
         </GlassCard>
 
         <GlassCard>
@@ -1012,9 +1035,17 @@ function DriverTrips() {
             <h3>Available request</h3>
             <Sparkles size={18} />
           </div>
-          <Row title="KM1030" subtitle="Potato · 420 kg" value="91% match" icon={Boxes} />
-          <Row title="Distance" subtitle="8.2 km away" value="OPTIMAL" icon={MapPinned} />
-          <button className="primary wide" onClick={() => showToast("Request accepted!", "success")}>Accept request</button>
+
+          <div style={{ display: "flex", gap: 12, margin: "10px 0" }}>
+            <img src={VEGETABLE_DATA.potato.img} alt="Potato" style={{ width: 60, height: 60, borderRadius: 10, objectFit: "cover" }} />
+            <div>
+              <b>KM-ORD-1002 · Potato</b>
+              <span style={{ display: "block", fontSize: 12, color: "#666" }}>280 kg · Medchal Route</span>
+              <small style={{ color: "var(--green)" }}>91% vehicle compatibility</small>
+            </div>
+          </div>
+
+          <button className="primary wide" onClick={() => showToast("Request accepted!", "success")}>Accept trip request</button>
         </GlassCard>
       </div>
     </div>
