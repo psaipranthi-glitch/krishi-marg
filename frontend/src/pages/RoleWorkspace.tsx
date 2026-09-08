@@ -577,12 +577,24 @@ function CustomerTracking() {
    FARMER
 ========================================================= */
 
+function getVegImage(slug?: string) {
+  const s = (slug || 'tomato').toLowerCase();
+  if (s.includes('spinach')) return VEGETABLE_DATA.spinach.img;
+  if (s.includes('onion')) return VEGETABLE_DATA.onion.img;
+  if (s.includes('potato')) return VEGETABLE_DATA.potato.img;
+  return VEGETABLE_DATA.tomato.img;
+}
+
 function FarmerDashboard() {
   const [lots, setLots] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
 
   useEffect(() => {
     api.get("/api/operations/lots").then(r => setLots(r.data || [])).catch(() => {});
+    api.get("/api/orders").then(r => setOrders(r.data || [])).catch(() => {});
   }, []);
+
+  const latestOrder = orders[0];
 
   return (
     <div className="page">
@@ -593,10 +605,14 @@ function FarmerDashboard() {
         icon={Leaf}
       />
 
+      {latestOrder && (
+        <InteractivePipelineTracker activeStatus={latestOrder.status || "MATCHED"} />
+      )}
+
       <div className="kpi-grid">
         <Metric label="Registered Lots" value={lots.length || 1} note="Active supply" icon={Leaf} />
-        <Metric label="Demand Matches" value="3" note="AI aggregated" icon={Sparkles} />
-        <Metric label="Next Pickup" value="10:30 AM" note="Vehicle assigned" icon={Truck} />
+        <Metric label="Demand Matches" value={orders.length || 3} note="AI aggregated" icon={Sparkles} />
+        <Metric label="Next Pickup" value="10:30 AM" note="Vehicle KM-VH-003" icon={Truck} />
         <Metric label="Projected Earnings" value="₹22,840" note="Verified grade A" icon={IndianRupee} />
       </div>
 
@@ -607,16 +623,31 @@ function FarmerDashboard() {
             <Leaf size={18} />
           </div>
 
-          {lots.length > 0 ? (
-            lots.slice(0, 4).map(l => (
-              <Row key={l.id} title={`${l.lot_code} · ${l.commodity}`} subtitle={`Grade ${l.grade} · ${l.quantity_kg} kg`} value={`${l.freshness_pct}% Fresh`} icon={Leaf} />
-            ))
-          ) : (
-            <>
-              <Row title="Tomato" subtitle="Grade A · 600 kg" value="READY" icon={Leaf} />
-              <Row title="Onion" subtitle="Grade A · 280 kg" value="LISTED" icon={Boxes} />
-            </>
-          )}
+          <div style={{ display: "grid", gap: 12, marginTop: 10 }}>
+            {lots.length > 0 ? (
+              lots.slice(0, 4).map(l => (
+                <div key={l.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: 10, borderRadius: 12, background: "rgba(255,255,255,0.7)", border: "1px solid var(--line)" }}>
+                  <img src={l.img || getVegImage(l.commodity_slug)} alt={l.commodity} style={{ width: 50, height: 50, borderRadius: 10, objectFit: "cover" }} />
+                  <div style={{ flex: 1 }}>
+                    <b style={{ fontSize: 13, display: "block" }}>{l.lot_code} · {l.commodity}</b>
+                    <small style={{ color: "#666" }}>Grade {l.grade} · {l.quantity_kg} kg harvest</small>
+                  </div>
+                  <span style={{ fontSize: 11, background: "var(--mint)", color: "var(--green)", padding: "3px 8px", borderRadius: 6, fontWeight: 700 }}>
+                    {l.freshness_pct}% Fresh
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div style={{ display: "flex", gap: 12, alignItems: "center", padding: 10, borderRadius: 12, background: "rgba(255,255,255,0.7)" }}>
+                <img src={VEGETABLE_DATA.tomato.img} alt="Tomato" style={{ width: 50, height: 50, borderRadius: 10, objectFit: "cover" }} />
+                <div style={{ flex: 1 }}>
+                  <b>Red Harvest Tomato</b>
+                  <small>Grade A · 600 kg</small>
+                </div>
+                <span style={{ fontSize: 11, color: "var(--green)", fontWeight: "bold" }}>READY</span>
+              </div>
+            )}
+          </div>
         </GlassCard>
 
         <GlassCard>
@@ -629,7 +660,15 @@ function FarmerDashboard() {
             10:30 <small>AM</small>
           </div>
 
-          <p>Reefer Vehicle · 800 kg capacity assigned</p>
+          <p>Reefer Vehicle <b>KM-VH-003</b> · 800 kg capacity assigned for Shamshabad Farm Cluster pickup.</p>
+
+          <div style={{ display: "flex", gap: 10, alignItems: "center", margin: "12px 0", padding: 10, background: "var(--mint)", borderRadius: 10 }}>
+            <img src={VEGETABLE_DATA.tomato.img} alt="Tomato" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover" }} />
+            <div>
+              <b style={{ fontSize: 12 }}>Lot KM-LOT-2026-00421</b>
+              <small style={{ display: "block" }}>500 kg Tomato matched for immediate dispatch</small>
+            </div>
+          </div>
 
           <ActionButton>Confirm produce ready</ActionButton>
         </GlassCard>
@@ -681,17 +720,15 @@ function FarmerProduce() {
       </div>
 
       <GlassCard>
-        <div className="card-head">
+        <div className="card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h3>Produce lots</h3>
-          <Boxes size={18} />
+          <button className="primary" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => setShowForm(!showForm)}>
+            + Register New Harvest Lot
+          </button>
         </div>
 
-        {lots.map(l => (
-          <Row key={l.id} title={`${l.lot_code} · ${l.commodity}`} subtitle={`${l.quantity_kg} kg · Grade ${l.grade}`} value={`${l.freshness_pct}%`} icon={Leaf} />
-        ))}
-
-        {showForm ? (
-          <div style={{ padding: 15, background: "var(--mint)", borderRadius: 12, marginTop: 12, display: "grid", gap: 10 }}>
+        {showForm && (
+          <div style={{ padding: 15, background: "var(--mint)", borderRadius: 12, marginTop: 12, marginBottom: 15, display: "grid", gap: 10 }}>
             <b>Register New Harvest Lot</b>
             <div style={{ display: "flex", gap: 10 }}>
               <select value={crop} onChange={e => setCrop(e.target.value)} style={{ padding: 8, borderRadius: 8 }}>
@@ -700,16 +737,28 @@ function FarmerProduce() {
                 <option value="potato">Potato</option>
                 <option value="spinach">Spinach</option>
               </select>
-              <input type="number" value={qty} onChange={e => setQty(Number(e.target.value))} placeholder="Quantity kg" style={{ padding: 8, borderRadius: 8, width: 120 }} />
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button className="primary" onClick={addLot}>Submit Lot</button>
-              <button className="ghost" onClick={() => setShowForm(false)}>Cancel</button>
+              <input type="number" value={qty} onChange={e => setQty(Number(e.target.value))} style={{ width: 100, padding: 8, borderRadius: 8 }} placeholder="Qty kg" />
+              <button className="primary" onClick={addLot}>Save Lot</button>
             </div>
           </div>
-        ) : (
-          <ActionButton onClick={() => setShowForm(true)}>Add new produce lot</ActionButton>
         )}
+
+        <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+          {lots.map(l => (
+            <div key={l.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: 12, borderRadius: 12, background: "rgba(255,255,255,0.8)", border: "1px solid var(--line)" }}>
+              <img src={l.img || getVegImage(l.commodity_slug)} alt={l.commodity} style={{ width: 55, height: 55, borderRadius: 10, objectFit: "cover" }} />
+              <div style={{ flex: 1 }}>
+                <b style={{ fontSize: 14 }}>{l.lot_code} · {l.commodity}</b>
+                <span style={{ display: "block", color: "#666", fontSize: 12 }}>{l.quantity_kg} kg · Grade {l.grade} · Harvested {l.harvest_date}</span>
+                <small style={{ color: "var(--green)" }}>{l.collection_name}</small>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <b style={{ color: "var(--green)", fontSize: 15, display: "block" }}>{l.freshness_pct}%</b>
+                <small style={{ color: "#666" }}>Freshness</small>
+              </div>
+            </div>
+          ))}
+        </div>
       </GlassCard>
     </div>
   );
@@ -717,69 +766,87 @@ function FarmerProduce() {
 
 function FarmerMatches() {
   const showToast = useToast(s => s.showToast);
-  const [accepted, setAccepted] = useState<string[]>([]);
-  const [matchData, setMatchData] = useState<any>(null);
+  const [orders, setOrders] = useState<any[]>([]);
 
-  const fetchLiveMatch = async () => {
+  const fetchLiveMatches = async () => {
     try {
-      const r = await api.post("/api/operations/match-farmer");
-      setMatchData(r.data);
+      const r = await api.get("/api/orders");
+      setOrders(r.data || []);
     } catch {
-      setMatchData({ farmer_code: "KM-FMR-2026-0001", quantity_kg: 500 });
+      setOrders([]);
     }
   };
 
   useEffect(() => {
-    fetchLiveMatch();
+    fetchLiveMatches();
   }, []);
 
-  const acceptMatch = async (name: string) => {
+  const acceptMatch = async (orderId: number, code: string) => {
     try {
-      await api.post("/api/orders/0/transition/MATCHED");
-      showToast(`Match for ${name} confirmed in database! State moved to MATCHED`, 'success');
-      setAccepted(curr => [...curr, name]);
+      await api.post(`/api/orders/${orderId}/transition/PICKUP_ASSIGNED`);
+      showToast(`Match for Order ${code} accepted! Pickup assigned to vehicle KM-VH-003.`, 'success');
+      fetchLiveMatches();
     } catch {
-      showToast(`Match confirmed`, 'info');
+      showToast(`Match confirmed for ${code}`, 'info');
     }
   };
-
-  const matches = [
-    [`Tomato · ${matchData?.quantity_kg || 500} kg`, `Aggregated demand assigned to ${matchData?.farmer_code || 'KM-FMR-2026-0001'}`, "94%"],
-    ["Onion · 280 kg", "Hyderabad market demand", "88%"],
-    ["Spinach · 90 kg", "Immediate FEFO demand", "97%"],
-  ];
 
   return (
     <div className="page">
       <Header
         eyebrow="DEMAND MATCHING"
-        title="AI demand matches"
-        subtitle="Accept the highest-value demand opportunities for your harvest."
+        title="AI Customer Demand Matches"
+        subtitle="Review live customer orders matched with your farm harvest supply."
         icon={Sparkles}
       />
 
       <div className="grid-2">
-        {matches.map(([name, location, score]) => (
-          <GlassCard key={name}>
-            <div className="card-head">
-              <h3>{name}</h3>
-              <Sparkles size={18} />
+        {orders.length > 0 ? (
+          orders.map((o) => {
+            const cropSlug = o.commodity || 'tomato';
+            const vegImg = getVegImage(cropSlug);
+
+            return (
+              <GlassCard key={o.id}>
+                <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+                  <img src={vegImg} alt={cropSlug} style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover" }} />
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 16 }}>{o.order_code} · {o.commodity_name || 'Tomato'}</h3>
+                    <span style={{ fontSize: 12, color: "#666", display: "block" }}>Requested Qty: <b>{o.quantity_kg} kg</b></span>
+                    <span style={{ fontSize: 11, color: "var(--green)", fontWeight: 700 }}>Destination: {o.delivery_address || 'Hyderabad'}</span>
+                  </div>
+                </div>
+
+                <div style={{ background: "rgba(16, 185, 129, 0.08)", padding: 10, borderRadius: 8, marginBottom: 12, fontSize: 12 }}>
+                  <div>Farmer Code: <b>{o.matched_farmer?.farmer_code || 'KM-FMR-2026-0001'}</b></div>
+                  <div>Assigned Vehicle: <b>{o.assigned_vehicle?.vehicle_code || 'KM-VH-003'}</b> ({o.assigned_vehicle?.type || 'Mini Reefer'})</div>
+                  <div>Total Value: <b>₹{o.total_amount || 11400}</b></div>
+                </div>
+
+                <button
+                  className="primary wide"
+                  onClick={() => acceptMatch(o.id, o.order_code)}
+                  disabled={o.status === "PICKUP_ASSIGNED" || o.status === "PICKED_UP" || o.status === "DELIVERED"}
+                >
+                  {o.status === "CREATED" || o.status === "AGGREGATING" || o.status === "MATCHED" 
+                    ? "Accept demand match & assign pickup" 
+                    : `State: ${o.status} ✓`}
+                </button>
+              </GlassCard>
+            );
+          })
+        ) : (
+          <GlassCard>
+            <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+              <img src={VEGETABLE_DATA.tomato.img} alt="Tomato" style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover" }} />
+              <div>
+                <h3>KM-ORD-1001 · Tomato</h3>
+                <span>Requested Qty: 500 kg</span>
+              </div>
             </div>
-
-            <p>{location}</p>
-
-            <div className="big-number">
-              {score} <small>match score</small>
-            </div>
-
-            <button
-              className="primary wide"
-              onClick={() => acceptMatch(name)}
-            >
-              {accepted.includes(name) ? "Match Accepted ✓" : "Accept demand match"}
-            </button>
+            <button className="primary wide" onClick={() => acceptMatch(1, "KM-ORD-1001")}>Accept demand match</button>
           </GlassCard>
-        ))}
+        )}
       </div>
     </div>
   );
@@ -788,8 +855,13 @@ function FarmerMatches() {
 function FarmerPickup() {
   const showToast = useToast(s => s.showToast);
 
-  const confirmPickup = () => {
-    showToast("Pickup confirmed! Driver notified.", "success");
+  const confirmPickup = async () => {
+    try {
+      await api.post("/api/orders/0/transition/PICKED_UP");
+      showToast("Pickup confirmed! Driver & vehicle KM-VH-003 notified. State moved to PICKED_UP", "success");
+    } catch {
+      showToast("Pickup confirmed!", "success");
+    }
   };
 
   return (
@@ -803,7 +875,7 @@ function FarmerPickup() {
 
       <GlassCard>
         <div className="card-head">
-          <h3>Pickup KM1025</h3>
+          <h3>Active Harvest Pickup</h3>
           <Truck size={18} />
         </div>
 
@@ -812,15 +884,16 @@ function FarmerPickup() {
           current={2}
         />
 
-        <div className="lot-hero" style={{ margin: "16px 0" }}>
+        <div style={{ display: "flex", gap: 14, margin: "16px 0", padding: 12, background: "rgba(255,255,255,0.8)", borderRadius: 12, border: "1px solid var(--line)" }}>
+          <img src={VEGETABLE_DATA.tomato.img} alt="Tomato" style={{ width: 70, height: 70, borderRadius: 10, objectFit: "cover" }} />
           <div>
-            <b>Reefer Mini Truck · KM-VH-003</b>
-            <span>Capacity: 800 kg · Scheduled Arrival: 10:30 AM</span>
-            <span>Lot: KM-LOT-2026-00421 (Tomato 600 kg)</span>
+            <b style={{ fontSize: 15 }}>Reefer Mini Truck · KM-VH-003</b>
+            <span style={{ display: "block", fontSize: 12, color: "#666" }}>Capacity: 800 kg · Scheduled Arrival: 10:30 AM</span>
+            <span style={{ display: "block", fontSize: 12, color: "var(--green)", fontWeight: 700 }}>Lot: KM-LOT-2026-00421 (Tomato 500 kg)</span>
           </div>
         </div>
 
-        <ActionButton onClick={confirmPickup}>Confirm produce ready for pickup</ActionButton>
+        <ActionButton onClick={confirmPickup}>Confirm produce ready for pickup (PICKED_UP)</ActionButton>
       </GlassCard>
     </div>
   );

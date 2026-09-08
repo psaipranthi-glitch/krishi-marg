@@ -68,6 +68,13 @@ def grade(lot_id:int,data:GradeIn,db:Session=Depends(get_db)):
     db.add(QualityInspection(lot_id=lot.id,visual_quality=data.visual_quality,damage_pct=data.damage_pct,freshness=data.freshness,temperature_c=data.temperature_c,handling_delay_min=data.handling_delay_min,recommended_grade=rec,confirmed_grade=confirmed)); db.add(FreshnessPrediction(lot_id=lot.id,**p))
     if old!=confirmed: notify(db,f'Grade changed from {old} to {confirmed}. Final price recalculation triggered.',severity='warning'); db.add(AuditLog(entity_type='lot',entity_id=lot.id,action='GRADE_CHANGE',details=f'{old}->{confirmed}'))
     db.commit(); return {'recommended_grade':rec,'confirmed_grade':confirmed,'freshness':p}
+VEG_IMAGES = {
+    'tomato': 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=600&auto=format&fit=crop&q=80',
+    'onion': 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cf?w=600&auto=format&fit=crop&q=80',
+    'potato': 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=600&auto=format&fit=crop&q=80',
+    'spinach': 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=600&auto=format&fit=crop&q=80',
+}
+
 @r.get('/lots')
 def get_lots(db:Session=Depends(get_db)):
     lots=db.scalars(select(ProduceLot).order_by(ProduceLot.id.desc())).all()
@@ -78,13 +85,15 @@ def get_lots(db:Session=Depends(get_db)):
         cc=db.get(CollectionCentre,lot.collection_centre_id) if lot.collection_centre_id else None
         pc=db.get(PackageCentre,lot.package_centre_id) if lot.package_centre_id else None
         hub=db.get(CityHub,lot.hub_id) if lot.hub_id else None
+        slug=c.slug if c else 'tomato'
         out.append({
             'id':lot.id,
             'lot_code':lot.lot_code,
             'farmer_name':f.name if f else 'Ramesh Kumar',
             'farmer_code':f.farmer_code if f else 'KM-FMR-0001',
             'commodity':c.name if c else 'Tomato',
-            'commodity_slug':c.slug if c else 'tomato',
+            'commodity_slug':slug,
+            'img': VEG_IMAGES.get(slug, VEG_IMAGES['tomato']),
             'quantity_kg':lot.quantity_kg,
             'harvest_date':str(lot.harvest_date),
             'grade':lot.grade,
