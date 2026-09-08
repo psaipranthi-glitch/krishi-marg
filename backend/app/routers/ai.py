@@ -1,14 +1,11 @@
 from fastapi import APIRouter
 from datetime import date
-import sys, os
 
-# Import ML Models
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from ml.freshness_model import freshness_model
-from ml.demand_forecast_model import demand_forecast_model
-from ml.spoilage_risk_model import spoilage_risk_model
-from ml.dynamic_pricing_model import dynamic_pricing_model
-from ml.vehicle_scoring_model import vehicle_scoring_model
+from app.ml.freshness_model import freshness_model
+from app.ml.demand_forecast_model import demand_forecast_model
+from app.ml.spoilage_risk_model import spoilage_risk_model
+from app.ml.dynamic_pricing_model import dynamic_pricing_model
+from app.ml.vehicle_scoring_model import vehicle_scoring_model
 
 r = APIRouter(prefix="/api/ai", tags=["AI"])
 
