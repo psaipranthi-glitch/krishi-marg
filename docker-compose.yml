@@ -1,0 +1,16 @@
+# Optional PostgreSQL profile for teams that want production-like DB later.
+# The default prototype DOES NOT need Docker or PostgreSQL; it uses SQLite.
+services:
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_USER: krishi
+      POSTGRES_PASSWORD: krishi
+      POSTGRES_DB: krishi_marg
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

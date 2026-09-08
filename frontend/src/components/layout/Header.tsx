@@ -1,0 +1,2 @@
+import{Bell,Search,Zap}from'lucide-react';import{useAuth}from'../../store/auth';
+export default function Header(){const{user}=useAuth();return <header className="topbar"><div className="search"><Search size={17}/><input placeholder="Search orders, lots, farmers..."/></div><div className="top-actions"><div className="demo-badge"><Zap size={15}/> HACKATHON DEMO MODE</div><Bell size={19}/><div className="avatar">{user?.name?.[0]||'K'}</div><div className="user-meta"><b>{user?.name}</b><span>{user?.role}</span></div></div></header>}

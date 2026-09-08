@@ -1,0 +1,3606 @@
+﻿
+
+==================== C:\KRISHI-MARG\frontend\src\App.tsx ====================
+import{useState}from'react';import{AnimatePresence,motion}from'framer-motion';import{LogOut,Menu,X}from'lucide-react';import{useAuth}from'./store/auth';import Sidebar from'./components/layout/Sidebar';import Header from'./components/layout/Header';import Login from'./pages/auth/Login';import Dashboard from'./pages/Dashboard';import RoleWorkspace from'./pages/RoleWorkspace';
+
+export default function App(){
+ const{user,logout}=useAuth();
+ const[active,setActive]=useState('Dashboard');
+ const[open,setOpen]=useState(false);
+
+ if(!user)return <Login/>;
+
+ const navigate=(page:string)=>{
+   setActive(page);
+   setOpen(false);
+ };
+
+ return <div className="app">
+   <button className="mobile-menu" onClick={()=>setOpen(!open)}>
+     {open?<X/>:<Menu/>}
+   </button>
+
+   <div className={open?'side-mobile open':'side-mobile'}>
+     <Sidebar active={active} setActive={navigate}/>
+   </div>
+
+   <div className="desktop-side">
+     <Sidebar active={active} setActive={setActive}/>
+   </div>
+
+   <main className="main">
+     <Header/>
+
+     <div className="content">
+       <AnimatePresence mode="wait">
+         <motion.div
+           key={active}
+           initial={{opacity:0,y:8}}
+           animate={{opacity:1,y:0}}
+           exit={{opacity:0,y:-8}}
+         >
+           {active==='Dashboard'
+             ?<Dashboard role={user.role} onNavigate={navigate}/>
+             :<RoleWorkspace role={user.role} page={active}/>
+           }
+         </motion.div>
+       </AnimatePresence>
+     </div>
+
+     <button className="logout" onClick={logout}>
+       <LogOut size={15}/> Sign out
+     </button>
+   </main>
+ </div>
+}
+
+
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\main.tsx ====================
+import React from 'react';import{createRoot}from'react-dom/client';import{BrowserRouter}from'react-router-dom';import'./styles/globals.css';import'leaflet/dist/leaflet.css';import App from'./App';createRoot(document.getElementById('root')!).render(<React.StrictMode><BrowserRouter><App/></BrowserRouter></React.StrictMode>)
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\vite-env.d.ts ====================
+/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_API_URL?: string
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\components\PremiumFarmScene.tsx ====================
+import { motion } from "framer-motion";
+import { Activity, BrainCircuit, MapPin, Truck, Sprout, Droplets } from "lucide-react";
+
+export default function PremiumFarmScene() {
+  return (
+    <section className="premium-farm-scene">
+
+      <div className="farm-sky">
+        <div className="farm-sun-glow" />
+        <div className="farm-sun" />
+        <div className="farm-cloud cloud-a" />
+        <div className="farm-cloud cloud-b" />
+      </div>
+
+      <svg className="farm-hills" viewBox="0 0 1200 360" preserveAspectRatio="none">
+        <path
+          d="M0 250 C180 130 280 190 420 110 C570 25 700 170 820 115 C980 40 1050 120 1200 65 L1200 360 L0 360Z"
+          className="hill-back"
+        />
+        <path
+          d="M0 285 C150 205 280 250 420 175 C590 90 710 235 850 175 C1000 110 1100 175 1200 125 L1200 360 L0 360Z"
+          className="hill-front"
+        />
+      </svg>
+
+      <div className="farm-ground">
+
+        <div className="farm-field">
+          {Array.from({ length: 8 }).map((_, row) => (
+            <div className="crop-row" key={row}>
+              {Array.from({ length: 15 }).map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="crop"
+                  animate={{
+                    rotate: [-2, 2, -2],
+                    scaleY: [0.95, 1.04, 0.95],
+                  }}
+                  transition={{
+                    duration: 2.5 + (i % 3) * 0.3,
+                    repeat: Infinity,
+                    delay: (row + i) * 0.04,
+                  }}
+                >
+                  <span className="stem" />
+                  <span className="leaf leaf-1" />
+                  <span className="leaf leaf-2" />
+                  <span className="leaf leaf-3" />
+                </motion.div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div className="field-lane lane-one" />
+        <div className="field-lane lane-two" />
+
+        <motion.div
+          className="ai-scan-line"
+          animate={{ top: ["12%", "82%", "12%"] }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+        />
+
+        <div className="sensor sensor-one">
+          <motion.div
+            className="sensor-pulse"
+            animate={{ scale: [1, 2.5], opacity: [0.7, 0] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+          <div className="sensor-core" />
+        </div>
+
+        <div className="sensor sensor-two">
+          <motion.div
+            className="sensor-pulse"
+            animate={{ scale: [1, 2.5], opacity: [0.7, 0] }}
+            transition={{ duration: 2, repeat: Infinity, delay: 0.7 }}
+          />
+          <div className="sensor-core" />
+        </div>
+
+        <svg className="route-svg" viewBox="0 0 1000 320">
+          <path
+            d="M80 250 C250 250 280 110 450 145 C610 180 650 70 900 95"
+            className="route-base"
+          />
+          <motion.path
+            d="M80 250 C250 250 280 110 450 145 C610 180 650 70 900 95"
+            className="route-active"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 4, repeat: Infinity, repeatDelay: 1 }}
+          />
+        </svg>
+
+        <div className="route-point point-one"><MapPin size={12} /></div>
+        <div className="route-point point-two"><MapPin size={12} /></div>
+        <div className="route-point point-three"><MapPin size={12} /></div>
+
+        <motion.div
+          className="farm-truck"
+          animate={{
+            x: [0, 620, 0],
+            y: [0, -5, 0],
+          }}
+          transition={{
+            duration: 9,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        >
+          <div className="truck-glow" />
+          <div className="truck-cargo">
+            <div className="cargo-lines" />
+            <div className="cargo-lines" />
+            <div className="cargo-lines" />
+          </div>
+          <div className="truck-cabin">
+            <div className="truck-window" />
+          </div>
+          <div className="truck-wheel wheel-a" />
+          <div className="truck-wheel wheel-b" />
+        </motion.div>
+
+      </div>
+
+      <div className="farm-overlay">
+
+        <motion.div
+          className="farm-status-card"
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="status-icon">
+            <Activity size={18} />
+          </div>
+          <div>
+            <span>LIVE FARM NETWORK</span>
+            <strong>Hyderabad Supply Zone</strong>
+          </div>
+          <div className="live-dot" />
+        </motion.div>
+
+        <motion.div
+          className="farm-ai-card"
+          animate={{ y: [0, -6, 0] }}
+          transition={{ duration: 4, repeat: Infinity }}
+        >
+          <div className="ai-icon">
+            <BrainCircuit size={19} />
+          </div>
+          <div>
+            <span>AI FIELD ANALYSIS</span>
+            <strong>Tomato demand rising</strong>
+            <small>Freshness window: 18h</small>
+          </div>
+        </motion.div>
+
+        <div className="farm-metrics">
+          <div>
+            <Sprout size={15} />
+            <span>600 kg</span>
+            <small>Available</small>
+          </div>
+          <div>
+            <Droplets size={15} />
+            <span>92%</span>
+            <small>Freshness</small>
+          </div>
+          <div>
+            <Truck size={15} />
+            <span>14 km</span>
+            <small>To hub</small>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+  );
+}
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\components\ai\AIInsight.tsx ====================
+import{motion}from"framer-motion";
+import{Sparkles,TrendingUp,AlertTriangle,Truck,ArrowUpRight}from"lucide-react";
+
+const insights=[
+ {
+  type:"Demand",
+  title:"Tomato demand rising",
+  text:"AI forecast shows stronger tomato demand for the next delivery window.",
+  icon:TrendingUp
+ },
+ {
+  type:"Freshness",
+  title:"Freshness risk detected",
+  text:"Some tomato lots require priority movement to reduce spoilage risk.",
+  icon:AlertTriangle
+ },
+ {
+  type:"Vehicle",
+  title:"Vehicle match optimized",
+  text:"A compatible vehicle has been identified based on capacity and route.",
+  icon:Truck
+ }
+];
+
+export default function AIInsight(){
+ return <div className="ai-insights">
+   {insights.map((item,index)=>{
+     const Icon=item.icon;
+
+     return <motion.div
+       key={item.type}
+       className="ai-insight"
+       initial={{opacity:0,x:12}}
+       animate={{opacity:1,x:0}}
+       transition={{delay:index*.08}}
+       whileHover={{x:4}}
+     >
+       <div className="ai-insight-icon">
+         <Icon size={17}/>
+       </div>
+
+       <div className="ai-insight-content">
+         <div className="ai-insight-top">
+           <span>{item.type}</span>
+           <Sparkles size={12}/>
+         </div>
+
+         <b>{item.title}</b>
+         <p>{item.text}</p>
+
+         <div className="ai-insight-action">
+           View signal <ArrowUpRight size={12}/>
+         </div>
+       </div>
+     </motion.div>
+   })}
+ </div>
+}
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\components\animations\CropField.tsx ====================
+import { motion } from "framer-motion";
+
+const crops = ["🌱", "🌿", "🌱", "🌿", "🌱", "🌿", "🌱", "🌿"];
+
+export default function CropField() {
+  return (
+    <div className="relative h-48 w-full overflow-hidden rounded-3xl bg-gradient-to-b from-sky-100 via-emerald-50 to-emerald-100 border border-emerald-100">
+      <motion.div
+        className="absolute inset-0"
+        animate={{ backgroundPositionX: ["0px", "40px", "0px"] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 20% 20%, rgba(255,255,255,.7) 0 20px, transparent 21px), radial-gradient(circle at 70% 35%, rgba(255,255,255,.5) 0 14px, transparent 15px)",
+          backgroundSize: "180px 100px",
+        }}
+      />
+
+      <motion.div
+        className="absolute left-8 top-8 text-4xl"
+        animate={{ x: [0, 25, 0], y: [0, -4, 0] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      >
+        ☁️
+      </motion.div>
+
+      <motion.div
+        className="absolute right-10 top-5 text-3xl"
+        animate={{ x: [0, -20, 0] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+      >
+        ☁️
+      </motion.div>
+
+      <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-emerald-500/30 to-transparent" />
+
+      <div className="absolute bottom-3 left-0 right-0 flex justify-around px-5">
+        {crops.map((crop, index) => (
+          <motion.div
+            key={index}
+            className="text-4xl origin-bottom"
+            animate={{
+              rotate: [-4, 4, -4],
+              scaleY: [0.95, 1.08, 0.95],
+            }}
+            transition={{
+              duration: 2.2 + index * 0.15,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: index * 0.12,
+            }}
+          >
+            {crop}
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="absolute bottom-4 left-5 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-emerald-700 backdrop-blur">
+        🌱 Field growing
+      </div>
+
+      <motion.div
+        className="absolute bottom-5 right-5 text-4xl"
+        animate={{ y: [0, -3, 0] }}
+        transition={{ duration: 1.8, repeat: Infinity }}
+      >
+        👨‍🌾
+      </motion.div>
+    </div>
+  );
+}
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\components\animations\PremiumFarmScene.tsx ====================
+import { motion } from "framer-motion";
+
+const cropRows = Array.from({ length: 7 });
+const cropColumns = Array.from({ length: 13 });
+
+export default function PremiumFarmScene() {
+  return (
+    <div className="premium-farm-scene">
+
+      {/* Ambient atmosphere */}
+      <motion.div
+        className="farm-sky-glow"
+        animate={{
+          scale: [1, 1.08, 1],
+          opacity: [0.45, 0.75, 0.45],
+        }}
+        transition={{
+          duration: 7,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
+
+      {/* Sun */}
+      <motion.div
+        className="farm-sun"
+        animate={{
+          scale: [1, 1.06, 1],
+          opacity: [0.72, 0.92, 0.72],
+        }}
+        transition={{
+          duration: 6,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
+
+      {/* Clouds */}
+      <motion.div
+        className="farm-cloud farm-cloud-one"
+        animate={{ x: [0, 45, 0] }}
+        transition={{
+          duration: 24,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
+
+      <motion.div
+        className="farm-cloud farm-cloud-two"
+        animate={{ x: [0, -35, 0] }}
+        transition={{
+          duration: 30,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
+
+      {/* Distant landscape */}
+      <svg
+        className="farm-landscape"
+        viewBox="0 0 1200 320"
+        preserveAspectRatio="none"
+      >
+        <path
+          d="M0 235 C120 175 230 195 350 125 C480 50 580 170 710 120 C830 75 920 150 1035 105 C1110 78 1160 95 1200 65 L1200 320 L0 320 Z"
+          className="farm-hill-back"
+        />
+
+        <path
+          d="M0 255 C160 205 275 230 405 170 C530 110 640 200 775 155 C900 110 1000 185 1115 140 C1160 123 1180 130 1200 112 L1200 320 L0 320 Z"
+          className="farm-hill-front"
+        />
+      </svg>
+
+      {/* Agricultural field */}
+      <div className="farm-field">
+
+        <div className="farm-field-perspective" />
+
+        <div className="farm-crop-grid">
+          {cropRows.map((_, row) => (
+            <div className="farm-crop-row" key={row}>
+              {cropColumns.map((_, index) => (
+                <motion.div
+                  className="farm-crop"
+                  key={index}
+                  initial={{
+                    opacity: 0,
+                    scaleY: 0,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    scaleY: [0.9, 1.08, 0.96],
+                  }}
+                  transition={{
+                    opacity: {
+                      duration: 0.7,
+                      delay: row * 0.08 + index * 0.015,
+                    },
+                    scaleY: {
+                      duration: 3.2 + index * 0.04,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: index * 0.07,
+                    },
+                  }}
+                >
+                  <span className="crop-leaf crop-leaf-left" />
+                  <span className="crop-leaf crop-leaf-right" />
+                </motion.div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Field lanes */}
+        <div className="farm-lane farm-lane-one" />
+        <div className="farm-lane farm-lane-two" />
+        <div className="farm-lane farm-lane-three" />
+      </div>
+
+      {/* Logistics road */}
+      <div className="farm-road">
+        <motion.div
+          className="road-marker"
+          animate={{ y: [0, 105] }}
+          transition={{
+            duration: 2.4,
+            repeat: Infinity,
+            ease: "linear",
+          }}
+        />
+      </div>
+
+      {/* Supply route */}
+      <div className="farm-route">
+        <motion.div
+          className="route-progress"
+          animate={{ width: ["0%", "100%"] }}
+          transition={{
+            duration: 5,
+            repeat: Infinity,
+            ease: "linear",
+          }}
+        />
+
+        <motion.div
+          className="route-node route-node-one"
+          animate={{ scale: [1, 1.25, 1] }}
+          transition={{
+            duration: 2.5,
+            repeat: Infinity,
+          }}
+        />
+
+        <motion.div
+          className="route-node route-node-two"
+          animate={{ scale: [1, 1.25, 1] }}
+          transition={{
+            duration: 2.5,
+            repeat: Infinity,
+            delay: 0.8,
+          }}
+        />
+
+        <motion.div
+          className="route-node route-node-three"
+          animate={{ scale: [1, 1.25, 1] }}
+          transition={{
+            duration: 2.5,
+            repeat: Infinity,
+            delay: 1.6,
+          }}
+        />
+      </div>
+
+      {/* Moving logistics vehicle */}
+      <motion.div
+        className="farm-vehicle"
+        animate={{
+          x: [0, 75, 0],
+        }}
+        transition={{
+          duration: 8,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      >
+        <div className="vehicle-shadow" />
+
+        <div className="vehicle-body">
+          <div className="vehicle-storage">
+            <span />
+            <span />
+            <span />
+          </div>
+
+          <div className="vehicle-cabin">
+            <div className="vehicle-window" />
+          </div>
+        </div>
+
+        <div className="vehicle-wheel vehicle-wheel-left" />
+        <div className="vehicle-wheel vehicle-wheel-right" />
+      </motion.div>
+
+      {/* Smart field sensor */}
+      <motion.div
+        className="field-sensor"
+        animate={{
+          y: [0, -5, 0],
+        }}
+        transition={{
+          duration: 3,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      >
+        <motion.div
+          className="sensor-ring"
+          animate={{
+            scale: [1, 1.7],
+            opacity: [0.6, 0],
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+          }}
+        />
+
+        <div className="sensor-core" />
+      </motion.div>
+
+      {/* AI scanning beam */}
+      <motion.div
+        className="ai-scan"
+        animate={{
+          x: ["-15%", "115%"],
+        }}
+        transition={{
+          duration: 7,
+          repeat: Infinity,
+          ease: "linear",
+        }}
+      />
+
+      {/* Network nodes */}
+      <div className="network-node node-farm">
+        <span />
+        <label>FARM</label>
+      </div>
+
+      <div className="network-node node-collection">
+        <span />
+        <label>COLLECTION</label>
+      </div>
+
+      <div className="network-node node-hub">
+        <span />
+        <label>CITY HUB</label>
+      </div>
+
+      {/* Main information panel */}
+      <motion.div
+        className="farm-info"
+        initial={{
+          opacity: 0,
+          y: 18,
+        }}
+        animate={{
+          opacity: 1,
+          y: 0,
+        }}
+        transition={{
+          duration: 0.7,
+          delay: 0.4,
+        }}
+      >
+        <div className="farm-info-top">
+          <div>
+            <span className="farm-label">
+              SMART FARM NETWORK
+            </span>
+
+            <h3>
+              Hyderabad Agricultural Belt
+            </h3>
+          </div>
+
+          <div className="farm-status">
+            <span />
+            LIVE
+          </div>
+        </div>
+
+        <div className="farm-metrics">
+
+          <div className="farm-metric">
+            <strong>600</strong>
+            <span>kg available</span>
+          </div>
+
+          <div className="farm-metric">
+            <strong>92%</strong>
+            <span>freshness</span>
+          </div>
+
+          <div className="farm-metric">
+            <strong>4.8</strong>
+            <span>km to hub</span>
+          </div>
+
+        </div>
+      </motion.div>
+
+      {/* AI intelligence card */}
+      <motion.div
+        className="farm-ai-card"
+        initial={{
+          opacity: 0,
+          x: 20,
+        }}
+        animate={{
+          opacity: 1,
+          x: 0,
+        }}
+        transition={{
+          duration: 0.7,
+          delay: 0.8,
+        }}
+      >
+        <motion.div
+          className="ai-dot"
+          animate={{
+            boxShadow: [
+              "0 0 0 0 rgba(55,145,116,.35)",
+              "0 0 0 10px rgba(55,145,116,0)",
+            ],
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+          }}
+        >
+          <span />
+        </motion.div>
+
+        <div>
+          <small>AI FIELD SIGNAL</small>
+
+          <strong>
+            Tomato demand rising
+          </strong>
+
+          <p>
+            +18% expected tomorrow
+          </p>
+        </div>
+      </motion.div>
+
+      {/* Freshness indicator */}
+      <motion.div
+        className="freshness-indicator"
+        initial={{
+          opacity: 0,
+          y: 10,
+        }}
+        animate={{
+          opacity: 1,
+          y: 0,
+        }}
+        transition={{
+          delay: 1.1,
+        }}
+      >
+        <div className="freshness-ring">
+          <svg viewBox="0 0 42 42">
+            <circle
+              cx="21"
+              cy="21"
+              r="17"
+              className="freshness-track"
+            />
+
+            <motion.circle
+              cx="21"
+              cy="21"
+              r="17"
+              className="freshness-progress"
+              initial={{
+                pathLength: 0,
+              }}
+              animate={{
+                pathLength: 0.92,
+              }}
+              transition={{
+                duration: 1.5,
+                delay: 1.2,
+              }}
+            />
+          </svg>
+
+          <strong>92</strong>
+        </div>
+
+        <div>
+          <small>FRESHNESS</small>
+          <span>Optimal condition</span>
+        </div>
+      </motion.div>
+
+    </div>
+  );
+}
+
+
+==================== C:\KRISHI-MARG\frontend\src\components\charts\DemandChart.tsx ====================
+import{ResponsiveContainer,BarChart,Bar,XAxis,YAxis,Tooltip,LineChart,Line,CartesianGrid}from'recharts';export function DemandChart({data}:{data:any[]}){return <ResponsiveContainer width="100%" height={220}><BarChart data={data}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="commodity"/><YAxis/><Tooltip/><Bar dataKey="demand_kg" radius={[7,7,0,0]}/><Bar dataKey="supply_kg" radius={[7,7,0,0]}/></BarChart></ResponsiveContainer>}
+export function ForecastChart({data}:{data:any[]}){return <ResponsiveContainer width="100%" height={220}><LineChart data={data}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="commodity"/><YAxis/><Tooltip/><Line type="monotone" dataKey="demand_kg" strokeWidth={3}/></LineChart></ResponsiveContainer>}
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\components\layout\Header.tsx ====================
+import{Bell,Search,Zap}from'lucide-react';import{useAuth}from'../../store/auth';
+export default function Header(){const{user}=useAuth();return <header className="topbar"><div className="search"><Search size={17}/><input placeholder="Search orders, lots, farmers..."/></div><div className="top-actions"><div className="demo-badge"><Zap size={15}/> HACKATHON DEMO MODE</div><Bell size={19}/><div className="avatar">{user?.name?.[0]||'K'}</div><div className="user-meta"><b>{user?.name}</b><span>{user?.role}</span></div></div></header>}
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\components\layout\Sidebar.tsx ====================
+import{motion}from'framer-motion';import{Leaf,LayoutDashboard,ShoppingCart,Truck,MapPinned,Sparkles,Boxes,BarChart3,AlertTriangle,PackageCheck,Route,UserRound,Settings,Warehouse,ScanLine}from'lucide-react';import{useAuth}from'../../store/auth';import{navByRole}from'../../utils/roles';
+const icons:any={Dashboard:LayoutDashboard,Orders:ShoppingCart,Demand:BarChart3,'AI Insights':Sparkles,Freshness:Leaf,Routes:Route,'Live Tracking':MapPinned,Analytics:BarChart3,Alerts:AlertTriangle,Traceability:ScanLine,Settings, 'My Produce':Leaf,'Demand Matches':Sparkles,Pickup:Truck,Earnings:BarChart3,Marketplace:ShoppingCart,Tracking:MapPinned,Trips:Truck,Route,Incoming:Boxes,'Incoming Lots':Boxes,Inspection:ScanLine,Packing:PackageCheck,Dispatch:Truck};
+export default function Sidebar({active,setActive}:{active:string;setActive:(s:string)=>void}){const{user}=useAuth();const role=user?.role||'admin';return <aside className="sidebar"><div className="brand"><div className="brandmark"><Leaf size={22}/></div><div><b>Krishi Marg</b><span>Logistics OS</span></div></div><div className="role-pill">{role.toUpperCase()} CONTROL</div><nav>{navByRole[role].map((n:string)=><motion.button key={n} whileHover={{x:4}} onClick={()=>setActive(n)} className={active===n?'nav active':'nav'}>{(()=>{const I=icons[n]||Warehouse;return <I size={17}/>})()}<span>{n}</span></motion.button>)}</nav><div className="sidebar-foot"><div className="leaf-pattern">âœ¦ã€€â§ã€€âœ¦</div><small>Right produce.<br/>Right vehicle.<br/>Right route.</small></div></aside>}
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\components\maps\LiveMap.tsx ====================
+import{useEffect,useState}from'react';import{MapContainer,TileLayer,Marker,Popup,Polyline,useMap}from'react-leaflet';import L from'leaflet';import{api,API}from'../../services/api';
+const mk=(emoji:string)=>L.divIcon({className:'custom-marker',html:`<span>${emoji}</span>`,iconSize:[32,32],iconAnchor:[16,16]});
+function Fit({points}:{points:number[][]}){const map=useMap();useEffect(()=>{if(points.length)map.fitBounds(points as any,{padding:[30,30]})},[points,map]);return null}
+export default function LiveMap(){const[locs,setLocs]=useState<any[]>([]);const[drivers,setDrivers]=useState<any>({});useEffect(()=>{api.get('/api/map/locations').then(r=>setLocs(r.data));const ws=new WebSocket(API.replace(/^http/,'ws')+'/ws/tracking');ws.onmessage=e=>{const d=JSON.parse(e.data);if(d.type==='driver_update')setDrivers((x:any)=>({...x,[d.driver_id]:d}))};return()=>ws.close()},[]);const pts=locs.map(x=>[x.lat,x.lon]);const all=locs.map(x=>drivers[x.id]?{...x,...drivers[x.id]}:x);return <div className="map-wrap"><MapContainer center={[17.385,78.4867]} zoom={10} scrollWheelZoom><TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/><Fit points={pts}/>{all.map(x=><Marker key={`${x.type}-${x.id}`} position={[x.lat,x.lon]} icon={mk(x.type==='driver'?'ðŸšš':x.type==='farmer'?'ðŸŒ¾':x.type==='hub'?'ðŸ¢':x.type==='customer'?'ðŸ“':'ðŸ“¦')}><Popup><b>{x.name}</b><br/>{x.type}<br/>{x.type==='driver'&&`ETA ${x.eta_min||18} min`}</Popup></Marker>)}<Polyline positions={[[17.25,78.43],[17.35,78.55],[17.44,78.39],[17.385,78.4867]]}/></MapContainer><div className="map-legend"><span>ðŸŒ¾ Farmer</span><span>ðŸ“¦ Network</span><span>ðŸšš Live</span><span>ðŸ“ Customer</span></div></div>}
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\components\ui\button.tsx ====================
+import * as React from 'react';
+export function Button({className='',variant='default',...props}:any){return <button className={`km-btn km-btn-${variant} ${className}`} {...props}/>}
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\components\ui\card.tsx ====================
+import * as React from 'react';
+export function Card({className='',...props}:any){return <div className={`glass ${className}`} {...props}/>}
+export function CardHeader({className='',...props}:any){return <div className={`card-head ${className}`} {...props}/>}
+export function CardTitle({className='',...props}:any){return <h3 className={className} {...props}/>}
+export function CardContent({className='',...props}:any){return <div className={className} {...props}/>}
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\components\ui\GlassCard.tsx ====================
+import{motion}from'framer-motion';export default function GlassCard({children,className=''}){return <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{duration:.35}} className={`glass ${className}`}>{children}</motion.div>}
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\components\ui\KPI.tsx ====================
+import{motion}from"framer-motion";import{ArrowUpRight}from"lucide-react";
+
+type KPIProps={
+ label:string;
+ value:any;
+ unit?:string;
+ trend?:string;
+ icon?:any;
+ onClick?:()=>void;
+ clickable?:boolean;
+};
+
+export default function KPI({
+ label,
+ value,
+ unit="",
+ trend,
+ icon:Icon,
+ onClick,
+ clickable=false
+}:KPIProps){
+ return <motion.div
+   className={`kpi glass ${clickable?"kpi-clickable":""}`}
+   initial={{opacity:0,scale:.96}}
+   animate={{opacity:1,scale:1}}
+   whileHover={clickable?{y:-4,scale:1.015}:undefined}
+   whileTap={clickable?{scale:.98}:undefined}
+   onClick={onClick}
+   role={clickable?"button":undefined}
+   tabIndex={clickable?0:undefined}
+   onKeyDown={e=>{
+     if(clickable&&(e.key==="Enter"||e.key===" ")){
+       e.preventDefault();
+       onClick?.();
+     }
+   }}
+ >
+   <div className="kpi-top">
+     <span>{label}</span>
+     {Icon&&<div className="kpi-icon"><Icon size={18}/></div>}
+   </div>
+
+   <div className="kpi-value">
+     {value}<small>{unit}</small>
+   </div>
+
+   {trend&&
+     <div className="trend">
+       <ArrowUpRight size={13}/>{trend}
+     </div>
+   }
+
+   {clickable&&
+     <div className="kpi-action">
+       View details <ArrowUpRight size={12}/>
+     </div>
+   }
+ </motion.div>
+}
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\pages\Dashboard.tsx ====================
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+
+import PremiumFarmScene from "../components/PremiumFarmScene";
+
+import {
+  Leaf,
+  Truck,
+  ShoppingCart,
+  AlertTriangle,
+  PackageCheck,
+  Activity,
+  ArrowUpRight,
+  Sparkles,
+  Route,
+} from "lucide-react";
+
+import { api } from "../services/api";
+
+import KPI from "../components/ui/KPI";
+import LiveMap from "../components/maps/LiveMap";
+import GlassCard from "../components/ui/GlassCard";
+
+import {
+  DemandChart,
+  ForecastChart,
+} from "../components/charts/DemandChart";
+
+import AIInsight from "../components/ai/AIInsight";
+
+export default function Dashboard({ role, onNavigate }: { role: string; onNavigate?: (page: string) => void }) {
+  const [kpi, setKpi] = useState<any>({});
+  const [demand, setDemand] = useState<any[]>([]);
+  const [forecast, setForecast] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [runningDemo, setRunningDemo] = useState(false);
+
+  const refresh = () => {
+    api
+      .get("/api/kpis")
+      .then((r) => setKpi(r.data))
+      .catch((err) => console.error("KPI error:", err));
+
+    api
+      .get("/api/demand")
+      .then((r) => setDemand(r.data))
+      .catch((err) => console.error("Demand error:", err));
+
+    api
+      .get("/api/forecast")
+      .then((r) => setForecast(r.data))
+      .catch((err) => console.error("Forecast error:", err));
+
+    api
+      .get("/api/orders")
+      .then((r) => setOrders(r.data))
+      .catch((err) => console.error("Orders error:", err));
+  };
+
+  useEffect(() => {
+    refresh();
+
+    const interval = setInterval(() => {
+      refresh();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const demo = async () => {
+    if (runningDemo) return;
+
+    try {
+      setRunningDemo(true);
+
+      await api.post("/api/orders", {
+        items: [
+          {
+            commodity: "tomato",
+            quantity_kg: 300,
+          },
+          {
+            commodity: "tomato",
+            quantity_kg: 200,
+          },
+        ],
+        delivery_address: "Gachibowli, Hyderabad",
+        delivery_lat: 17.4401,
+        delivery_lon: 78.3489,
+        delivery_window: "10:00-13:00",
+      });
+
+      await api.post("/api/operations/aggregate");
+
+      await api.post("/api/operations/match-farmer");
+
+      await api.post("/api/operations/route");
+
+      await api.post("/api/demo/run");
+
+      refresh();
+    } catch (error) {
+      console.error("Demo journey failed:", error);
+    } finally {
+      setRunningDemo(false);
+    }
+  };
+
+  const formatRole = () => {
+    if (role === "admin") {
+      return "Logistics Control Tower";
+    }
+
+    if (role === "customer") {
+      return "Fresh market, delivered smarter";
+    }
+
+    return `${role.charAt(0).toUpperCase() + role.slice(1)} workspace`;
+  };
+
+  return (
+    <div className="page">
+
+      {/* =====================================================
+          HERO
+      ===================================================== */}
+
+      <motion.div
+        className="hero-row"
+        initial={{ opacity: 0, y: -15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <div>
+          <div className="eyebrow">
+            <Activity size={14} />
+            LIVE OPERATIONS
+          </div>
+
+          <h1>{formatRole()}</h1>
+
+          <p>
+            Hyderabad network Â· perishability-aware Â· updated in real time
+          </p>
+        </div>
+
+        {role === "admin" && (
+          <motion.button
+            className="primary"
+            onClick={demo}
+            disabled={runningDemo}
+            whileHover={{ scale: runningDemo ? 1 : 1.03 }}
+            whileTap={{ scale: runningDemo ? 1 : 0.97 }}
+          >
+            <Sparkles size={16} />
+
+            {runningDemo
+              ? "Running demo..."
+              : "Run full demo journey"}
+          </motion.button>
+        )}
+      </motion.div>
+
+      {/* =====================================================
+          ANIMATED FARM / CROP FIELD
+      ===================================================== */}
+
+      <motion.div
+        className="dashboard-crop-field"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{
+          duration: 0.7,
+          delay: 0.15,
+        }}
+      >
+        <PremiumFarmScene />
+      </motion.div>
+
+      {/* =====================================================
+          KPI GRID
+      ===================================================== */}
+
+      <motion.div
+        className="kpi-grid"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{
+          duration: 0.6,
+          delay: 0.25,
+        }}
+      >
+        <KPI
+          label="Active Orders"
+          value={kpi.active_orders || 0}
+          trend="12% today"
+          icon={ShoppingCart}
+        />
+
+        <KPI
+          label="Freshness Critical"
+          value={kpi.freshness_critical || 0}
+          trend="Priority queue"
+          icon={AlertTriangle}
+        />
+
+        <KPI
+          label="Active Vehicles"
+          value={kpi.active_vehicles || 0}
+          trend="92% utilization"
+          icon={Truck}
+        />
+
+        <KPI
+          label="On-Time Delivery"
+          value={kpi.on_time_delivery || 0}
+          unit="%"
+          trend="+4.2%"
+          icon={Route}
+        />
+
+        <KPI
+          label="Demand Served"
+          value={kpi.demand_served || 0}
+          unit="%"
+          trend="Across 4 crops"
+          icon={Leaf}
+        />
+      </motion.div>
+
+      {/* =====================================================
+          LIVE MAP + AI COPILOT
+      ===================================================== */}
+
+      <motion.div
+        className="grid-3"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{
+          duration: 0.6,
+          delay: 0.35,
+        }}
+      >
+
+        {/* LIVE MAP */}
+
+        <GlassCard className="map-card span-2">
+
+          <div className="card-head">
+
+            <div>
+              <h3>Live Hyderabad Network</h3>
+
+              <span>
+                Drivers, farms, collection, packhouses, hubs & customers
+              </span>
+            </div>
+
+            <div className="live">
+              <i />
+              LIVE
+            </div>
+
+          </div>
+
+          <LiveMap />
+
+        </GlassCard>
+
+        {/* AI COPILOT */}
+
+        <GlassCard>
+
+          <div className="card-head">
+
+            <div>
+              <h3>AI Copilot</h3>
+
+              <span>
+                Signals affecting logistics now
+              </span>
+            </div>
+
+            <motion.div
+              animate={{
+                rotate: [0, 8, -8, 0],
+                scale: [1, 1.08, 1],
+              }}
+              transition={{
+                duration: 2.5,
+                repeat: Infinity,
+              }}
+            >
+              <Sparkles size={19} />
+            </motion.div>
+
+          </div>
+
+          <AIInsight />
+
+        </GlassCard>
+
+      </motion.div>
+
+      {/* =====================================================
+          DEMAND + FORECAST
+      ===================================================== */}
+
+      <motion.div
+        className="grid-2"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{
+          duration: 0.6,
+          delay: 0.45,
+        }}
+      >
+
+        {/* DEMAND */}
+
+        <GlassCard>
+
+          <div className="card-head">
+
+            <div>
+              <h3>
+                Demand vs available supply
+              </h3>
+
+              <span>
+                Backend-fed aggregation across the operating area
+              </span>
+            </div>
+
+          </div>
+
+          <DemandChart data={demand} />
+
+        </GlassCard>
+
+        {/* FORECAST */}
+
+        <GlassCard>
+
+          <div className="card-head">
+
+            <div>
+              <h3>
+                Tomorrow's AI forecast
+              </h3>
+
+              <span>
+                Confidence-weighted demand signal
+              </span>
+            </div>
+
+          </div>
+
+          <ForecastChart data={forecast} />
+
+        </GlassCard>
+
+      </motion.div>
+
+      {/* =====================================================
+          LIVE OPERATIONS + IMPACT
+      ===================================================== */}
+
+      <motion.div
+        className="grid-2"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{
+          duration: 0.6,
+          delay: 0.55,
+        }}
+      >
+
+        {/* LIVE OPERATIONS */}
+
+        <GlassCard>
+
+          <div className="card-head">
+
+            <h3>
+              Live operations feed
+            </h3>
+
+            <ArrowUpRight size={17} />
+
+          </div>
+
+          <div className="activity">
+
+            {orders.length === 0 ? (
+
+              <div className="empty-state">
+                No active operations yet.
+              </div>
+
+            ) : (
+
+              orders.slice(0, 6).map((o, i) => (
+
+                <motion.div
+                  key={o.id}
+                  initial={{
+                    opacity: 0,
+                    x: -10,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    x: 0,
+                  }}
+                  transition={{
+                    delay: i * 0.05,
+                  }}
+                >
+
+                  <time>
+                    {`${18 + i}:4${i}`}
+                  </time>
+
+                  <span>
+                    {o.order_code} Â· {o.quantity_kg} kg Â·{" "}
+                    <b>{o.status}</b>
+                  </span>
+
+                </motion.div>
+
+              ))
+
+            )}
+
+          </div>
+
+        </GlassCard>
+
+        {/* IMPACT */}
+
+        <GlassCard>
+
+          <div className="card-head">
+
+            <h3>
+              Impact snapshot
+            </h3>
+
+            <PackageCheck size={18} />
+
+          </div>
+
+          <div className="impact">
+
+            <motion.div
+              whileHover={{
+                y: -3,
+              }}
+            >
+              <b>
+                {kpi.empty_km || 12.4}
+              </b>
+
+              <span>
+                Empty KM avoided index
+              </span>
+            </motion.div>
+
+            <motion.div
+              whileHover={{
+                y: -3,
+              }}
+            >
+              <b>
+                â‚¹{kpi.cost_per_kg || 4.8}
+              </b>
+
+              <span>
+                Avg logistics / kg
+              </span>
+            </motion.div>
+
+            <motion.div
+              whileHover={{
+                y: -3,
+              }}
+            >
+              <b>
+                {kpi.spoilage || 3.2}%
+              </b>
+
+              <span>
+                Estimated spoilage
+              </span>
+            </motion.div>
+
+            <motion.div
+              whileHover={{
+                y: -3,
+              }}
+            >
+              <b>
+                96%
+              </b>
+
+              <span>
+                Grade retained
+              </span>
+            </motion.div>
+
+          </div>
+
+        </GlassCard>
+
+      </motion.div>
+
+    </div>
+  );
+}
+
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\pages\RoleWorkspace.tsx ====================
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  BarChart3,
+  Boxes,
+  CheckCircle2,
+  Clock3,
+  IndianRupee,
+  Leaf,
+  MapPinned,
+  PackageCheck,
+  Route,
+  ScanLine,
+  ShoppingCart,
+  Sparkles,
+  Truck,
+  Users,
+} from "lucide-react";
+
+import GlassCard from "../components/ui/GlassCard";
+import { api } from "../services/api";
+
+function Header({
+  eyebrow,
+  title,
+  subtitle,
+  icon: Icon,
+}: {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  icon: any;
+}) {
+  return (
+    <div className="hero-row">
+      <div>
+        <div className="eyebrow">
+          <Icon size={14} />
+          {eyebrow}
+        </div>
+        <h1>{title}</h1>
+        <p>{subtitle}</p>
+      </div>
+      <div className="status">
+        <Activity size={14} />
+        LIVE
+      </div>
+    </div>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  note,
+  icon: Icon,
+}: {
+  label: string;
+  value: string | number;
+  note: string;
+  icon: any;
+}) {
+  return (
+    <motion.div
+      className="kpi glass"
+      whileHover={{ y: -4, scale: 1.01 }}
+    >
+      <div className="kpi-top">
+        <span>{label}</span>
+        <div className="kpi-icon">
+          <Icon size={17} />
+        </div>
+      </div>
+      <div className="kpi-value">{value}</div>
+      <small>{note}</small>
+    </motion.div>
+  );
+}
+
+function Row({
+  title,
+  subtitle,
+  value,
+  icon: Icon,
+  action,
+}: {
+  title: string;
+  subtitle: string;
+  value: string;
+  icon: any;
+  action?: () => void;
+}) {
+  return (
+    <motion.div
+      className="order-row"
+      whileHover={{ x: 4 }}
+      onClick={action}
+      style={action ? { cursor: "pointer" } : undefined}
+    >
+      <div className="kpi-icon">
+        <Icon size={16} />
+      </div>
+      <div style={{ flex: 1 }}>
+        <b>{title}</b>
+        <span>{subtitle}</span>
+      </div>
+      <strong>{value}</strong>
+    </motion.div>
+  );
+}
+
+function Steps({ items, current = 2 }: { items: string[]; current?: number }) {
+  return (
+    <div className="process-strip">
+      {items.map((item, index) => (
+        <div
+          key={item}
+          className={index <= current ? "active" : ""}
+        >
+          <b>{index + 1}</b>
+          <span>{item}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ActionButton({
+  children,
+  onClick,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+}) {
+  return (
+    <button className="primary wide" onClick={onClick}>
+      {children}
+      <ArrowRight size={16} />
+    </button>
+  );
+}
+
+/* =========================================================
+   CUSTOMER
+========================================================= */
+
+function CustomerDashboard() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="CUSTOMER DASHBOARD"
+        title="Your fresh supply journey"
+        subtitle="See your orders, delivery windows and produce movement in one place."
+        icon={ShoppingCart}
+      />
+
+      <div className="kpi-grid">
+        <Metric label="Active Orders" value="3" note="2 arriving today" icon={ShoppingCart} />
+        <Metric label="Produce Ordered" value="680 kg" note="Across 4 crops" icon={Leaf} />
+        <Metric label="In Transit" value="2" note="Live tracking active" icon={Truck} />
+        <Metric label="Freshness Score" value="94%" note="Average expected" icon={Sparkles} />
+      </div>
+
+      <div className="grid-2">
+        <GlassCard>
+          <div className="card-head">
+            <h3>Current delivery</h3>
+            <Truck size={18} />
+          </div>
+
+          <div className="lot-hero">
+            <div className="veg">
+              <Leaf size={28} />
+            </div>
+            <div>
+              <b>KM-ORD-2026-1025</b>
+              <span>Tomato · 300 kg</span>
+              <span>ETA · 18 minutes</span>
+            </div>
+          </div>
+
+          <Steps
+            items={["Confirmed", "Matched", "Picked Up", "In Transit", "Delivered"]}
+            current={3}
+          />
+        </GlassCard>
+
+        <GlassCard>
+          <div className="card-head">
+            <h3>Smart delivery insight</h3>
+            <Sparkles size={18} />
+          </div>
+
+          <div className="ai-result">
+            <Sparkles size={18} />
+            <b>Your tomato shipment is on the optimized route.</b>
+            <span>
+              The system prioritized freshness and your delivery window.
+            </span>
+          </div>
+        </GlassCard>
+      </div>
+    </div>
+  );
+}
+
+function CustomerOrders() {
+  const [orders, setOrders] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.get("/api/orders")
+      .then((r) => setOrders(r.data || []))
+      .catch(console.error);
+  }, []);
+
+  const fallback = [
+    ["KM-ORD-1025", "Tomato · 300 kg", "IN TRANSIT"],
+    ["KM-ORD-1024", "Potato · 180 kg", "CONFIRMED"],
+    ["KM-ORD-1023", "Spinach · 50 kg", "DELIVERED"],
+  ];
+
+  return (
+    <div className="page">
+      <Header
+        eyebrow="MY ORDERS"
+        title="Order centre"
+        subtitle="Review every order and its current fulfilment stage."
+        icon={ShoppingCart}
+      />
+
+      <div className="kpi-grid">
+        <Metric label="Total Orders" value={orders.length || 3} note="Your orders" icon={ShoppingCart} />
+        <Metric label="Processing" value="1" note="Being prepared" icon={Clock3} />
+        <Metric label="In Transit" value="1" note="Live vehicle" icon={Truck} />
+        <Metric label="Delivered" value="1" note="Completed" icon={CheckCircle2} />
+      </div>
+
+      <GlassCard>
+        <div className="card-head">
+          <h3>Order history</h3>
+          <Activity size={18} />
+        </div>
+
+        {orders.length
+          ? orders.map((o: any) => (
+              <Row
+                key={o.id}
+                title={o.order_code || `Order ${o.id}`}
+                subtitle={`${o.quantity_kg || 0} kg · ${o.delivery_address || "Hyderabad"}`}
+                value={o.status || "CREATED"}
+                icon={ShoppingCart}
+              />
+            ))
+          : fallback.map((o) => (
+              <Row
+                key={o[0]}
+                title={o[0]}
+                subtitle={o[1]}
+                value={o[2]}
+                icon={ShoppingCart}
+              />
+            ))}
+      </GlassCard>
+    </div>
+  );
+}
+
+function CustomerMarketplace() {
+  const crops = [
+    ["Tomato", "?36/kg", "92% freshness"],
+    ["Onion", "?28/kg", "88% freshness"],
+    ["Potato", "?24/kg", "94% freshness"],
+    ["Spinach", "?42/kg", "61% freshness"],
+  ];
+
+  return (
+    <div className="page">
+      <Header
+        eyebrow="MARKETPLACE"
+        title="Choose your produce"
+        subtitle="AI-assisted pricing based on grade, freshness and logistics."
+        icon={Leaf}
+      />
+
+      <div className="crop-grid">
+        {crops.map(([crop, price, freshness]) => (
+          <motion.div
+            className="crop-card"
+            key={crop}
+            whileHover={{ y: -5 }}
+          >
+            <Leaf size={25} />
+            <b>{crop}</b>
+            <small>{price} · {freshness}</small>
+            <button className="ghost">Select</button>
+          </motion.div>
+        ))}
+      </div>
+
+      <GlassCard>
+        <div className="card-head">
+          <h3>Recommended purchase</h3>
+          <Sparkles size={18} />
+        </div>
+
+        <Row
+          title="Tomato · Grade A"
+          subtitle="500 kg aggregated demand"
+          value="?18,000"
+          icon={Leaf}
+        />
+
+        <ActionButton>Build tomato order</ActionButton>
+      </GlassCard>
+    </div>
+  );
+}
+
+function CustomerTracking() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="LIVE DELIVERY"
+        title="Track your shipment"
+        subtitle="Follow your produce from hub to your doorstep."
+        icon={MapPinned}
+      />
+
+      <div className="grid-2">
+        <GlassCard>
+          <div className="card-head">
+            <h3>Live route</h3>
+            <MapPinned size={18} />
+          </div>
+
+          <div className="live-map">
+            <div className="map-grid" />
+            <div className="map-route route-one" />
+            <div className="map-node node-a">
+              <Truck size={15} />
+            </div>
+            <div className="map-node node-c">
+              <MapPinned size={15} />
+            </div>
+            <div className="map-label">DELIVERY ROUTE</div>
+          </div>
+        </GlassCard>
+
+        <GlassCard>
+          <div className="card-head">
+            <h3>Shipment status</h3>
+            <Truck size={18} />
+          </div>
+
+          <Steps
+            items={["Pickup", "Collection", "Package", "Hub", "Delivery"]}
+            current={3}
+          />
+
+          <div className="ai-result">
+            <Truck size={18} />
+            <b>ETA 18 minutes</b>
+            <span>Vehicle KM-VH-003 · 500 kg tomato</span>
+          </div>
+        </GlassCard>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   FARMER
+========================================================= */
+
+function FarmerDashboard() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="FARMER DASHBOARD"
+        title="Your farm logistics cockpit"
+        subtitle="Turn available harvest into verified demand and profitable pickups."
+        icon={Leaf}
+      />
+
+      <div className="kpi-grid">
+        <Metric label="Ready Produce" value="600 kg" note="Tomato" icon={Leaf} />
+        <Metric label="Demand Matches" value="3" note="AI ranked" icon={Sparkles} />
+        <Metric label="Pickup Today" value="10:30" note="Vehicle assigned" icon={Truck} />
+        <Metric label="Projected Earnings" value="?22,840" note="Current matches" icon={IndianRupee} />
+      </div>
+
+      <div className="grid-2">
+        <GlassCard>
+          <div className="card-head">
+            <h3>Today's harvest</h3>
+            <Leaf size={18} />
+          </div>
+
+          <Row title="Tomato" subtitle="Grade A · 600 kg" value="READY" icon={Leaf} />
+          <Row title="Onion" subtitle="Grade A · 280 kg" value="LISTED" icon={Boxes} />
+          <Row title="Spinach" subtitle="Immediate · 90 kg" value="URGENT" icon={AlertTriangle} />
+        </GlassCard>
+
+        <GlassCard>
+          <div className="card-head">
+            <h3>Next pickup</h3>
+            <Truck size={18} />
+          </div>
+
+          <div className="big-number">
+            10:30 <small>AM</small>
+          </div>
+
+          <p>KM-VH-003 · Reefer · 800 kg capacity</p>
+
+          <ActionButton>View pickup details</ActionButton>
+        </GlassCard>
+      </div>
+    </div>
+  );
+}
+
+function FarmerProduce() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="MY PRODUCE"
+        title="Harvest inventory"
+        subtitle="Manage produce lots, quantities, grades and freshness."
+        icon={Leaf}
+      />
+
+      <div className="kpi-grid">
+        <Metric label="Total Produce" value="970 kg" note="Ready to sell" icon={Leaf} />
+        <Metric label="Grade A" value="720 kg" note="Premium" icon={CheckCircle2} />
+        <Metric label="At Risk" value="90 kg" note="Move immediately" icon={AlertTriangle} />
+        <Metric label="Listed Lots" value="6" note="Active" icon={Boxes} />
+      </div>
+
+      <GlassCard>
+        <div className="card-head">
+          <h3>Produce lots</h3>
+          <Boxes size={18} />
+        </div>
+
+        <Row title="KM-LOT-00421" subtitle="Tomato · 600 kg · Grade A" value="92%" icon={Leaf} />
+        <Row title="KM-LOT-00418" subtitle="Spinach · 90 kg · Grade B" value="61%" icon={AlertTriangle} />
+        <Row title="KM-LOT-00417" subtitle="Potato · 280 kg · Grade A" value="84%" icon={Boxes} />
+
+        <ActionButton>Add produce lot</ActionButton>
+      </GlassCard>
+    </div>
+  );
+}
+
+function FarmerMatches() {
+  const [accepted, setAccepted] = useState<string[]>([]);
+
+  const matches = [
+    ["Tomato · 500 kg", "Gachibowli demand", "94%"],
+    ["Onion · 280 kg", "Hyderabad market", "88%"],
+    ["Spinach · 90 kg", "Immediate demand", "97%"],
+  ];
+
+  return (
+    <div className="page">
+      <Header
+        eyebrow="DEMAND MATCHING"
+        title="AI demand matches"
+        subtitle="Accept the highest-value demand opportunities for your harvest."
+        icon={Sparkles}
+      />
+
+      <div className="grid-2">
+        {matches.map(([name, location, score]) => (
+          <GlassCard key={name}>
+            <div className="card-head">
+              <h3>{name}</h3>
+              <Sparkles size={18} />
+            </div>
+
+            <p>{location}</p>
+
+            <div className="big-number">
+              {score} <small>match</small>
+            </div>
+
+            <button
+              className="primary wide"
+              onClick={() =>
+                setAccepted((current) =>
+                  current.includes(name)
+                    ? current.filter((x) => x !== name)
+                    : [...current, name]
+                )
+              }
+            >
+              {accepted.includes(name) ? "Match accepted" : "Accept demand"}
+            </button>
+          </GlassCard>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FarmerPickup() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="PICKUP"
+        title="Harvest pickup schedule"
+        subtitle="Prepare your lot for the assigned driver and collection centre."
+        icon={Truck}
+      />
+
+      <GlassCard>
+        <div className="card-head">
+          <h3>Pickup KM1025</h3>
+          <Truck size={18} />
+        </div>
+
+        <Steps
+          items={["Requested", "Driver Assigned", "Arriving", "Picked Up", "Collection"]}
+          current={2}
+        />
+
+        <div className="lot-details">
+          <b>KM-VH-003 · Reefer</b>
+          <span>Capacity: 800 kg</span>
+          <span>Arrival: 10:30 AM</span>
+          <span>Lot: KM-LOT-2026-00421</span>
+        </div>
+
+        <ActionButton>Confirm produce ready</ActionButton>
+      </GlassCard>
+    </div>
+  );
+}
+
+function FarmerEarnings() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="EARNINGS"
+        title="Farmer earnings"
+        subtitle="Track produce value, grade adjustments and completed payments."
+        icon={IndianRupee}
+      />
+
+      <div className="kpi-grid">
+        <Metric label="This Month" value="?48,620" note="Completed sales" icon={IndianRupee} />
+        <Metric label="Pending" value="?12,480" note="In fulfilment" icon={Clock3} />
+        <Metric label="Grade Premium" value="+?4/kg" note="Grade A average" icon={Sparkles} />
+        <Metric label="Logistics" value="?3/kg" note="Average cost" icon={Truck} />
+      </div>
+
+      <GlassCard>
+        <div className="card-head">
+          <h3>Recent settlements</h3>
+          <IndianRupee size={18} />
+        </div>
+
+        <Row title="Tomato · 500 kg" subtitle="Grade A · completed" value="?18,000" icon={Leaf} />
+        <Row title="Potato · 280 kg" subtitle="Grade A · completed" value="?6,720" icon={Boxes} />
+        <Row title="Spinach · 90 kg" subtitle="Grade B · pending" value="?3,420" icon={Leaf} />
+      </GlassCard>
+    </div>
+  );
+}
+
+/* =========================================================
+   DRIVER
+========================================================= */
+
+function DriverDashboard() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="DRIVER DASHBOARD"
+        title="Your logistics shift"
+        subtitle="Manage assigned trips, vehicle status and delivery progress."
+        icon={Truck}
+      />
+
+      <div className="kpi-grid">
+        <Metric label="Today's Trips" value="4" note="2 completed" icon={Truck} />
+        <Metric label="Current Trip" value="KM1025" note="Tomato · 500 kg" icon={Route} />
+        <Metric label="Next ETA" value="18 min" note="Live GPS" icon={Clock3} />
+        <Metric label="Vehicle Load" value="62%" note="500 / 800 kg" icon={Boxes} />
+      </div>
+
+      <GlassCard>
+        <div className="card-head">
+          <h3>Current assignment</h3>
+          <Truck size={18} />
+        </div>
+
+        <Steps
+          items={["Assigned", "En Route", "Arrived", "Picked Up", "Delivered"]}
+          current={1}
+        />
+
+        <div className="recommend">
+          <Truck size={26} />
+          <div>
+            <b>KM-VH-003 · Mini Reefer</b>
+            <span>Tomato · 500 kg</span>
+            <small>Shamshabad ? Collection Centre ? Hyderabad Hub</small>
+          </div>
+        </div>
+
+        <ActionButton>Open current trip</ActionButton>
+      </GlassCard>
+    </div>
+  );
+}
+
+function DriverTrips() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="MY TRIPS"
+        title="Trip requests"
+        subtitle="Accept compatible assignments based on capacity, route and produce."
+        icon={Truck}
+      />
+
+      <div className="grid-2">
+        <GlassCard>
+          <div className="card-head">
+            <h3>Current trip</h3>
+            <CheckCircle2 size={18} />
+          </div>
+          <Row title="KM1025" subtitle="Tomato · 500 kg" value="ACCEPTED" icon={Truck} />
+          <Row title="Shamshabad ? Hub" subtitle="Cold-chain route" value="18 min" icon={Route} />
+          <ActionButton>Start trip</ActionButton>
+        </GlassCard>
+
+        <GlassCard>
+          <div className="card-head">
+            <h3>Available request</h3>
+            <Sparkles size={18} />
+          </div>
+          <Row title="KM1030" subtitle="Potato · 420 kg" value="91%" icon={Boxes} />
+          <Row title="Distance" subtitle="8.2 km away" value="GOOD" icon={MapPinned} />
+          <button className="primary wide">Accept request</button>
+        </GlassCard>
+      </div>
+    </div>
+  );
+}
+
+function DriverRoute() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="ACTIVE ROUTE"
+        title="Optimized driver route"
+        subtitle="Follow the freshness-aware sequence generated for your current trip."
+        icon={Route}
+      />
+
+      <div className="grid-2">
+        <GlassCard>
+          <div className="card-head">
+            <h3>Route map</h3>
+            <MapPinned size={18} />
+          </div>
+
+          <div className="live-map">
+            <div className="map-grid" />
+            <div className="map-route route-one" />
+            <div className="map-route route-two" />
+            <div className="map-node node-a"><Truck size={15} /></div>
+            <div className="map-node node-b"><Boxes size={15} /></div>
+            <div className="map-node node-c"><MapPinned size={15} /></div>
+          </div>
+        </GlassCard>
+
+        <GlassCard>
+          <div className="card-head">
+            <h3>Route sequence</h3>
+            <Route size={18} />
+          </div>
+
+          <Row title="1 · Farmer pickup" subtitle="Shamshabad" value="DONE" icon={Leaf} />
+          <Row title="2 · Collection" subtitle="Verify and grade" value="NEXT" icon={Boxes} />
+          <Row title="3 · City hub" subtitle="Final handoff" value="PENDING" icon={MapPinned} />
+        </GlassCard>
+      </div>
+    </div>
+  );
+}
+
+function DriverTracking() {
+  const [status, setStatus] = useState("EN_ROUTE");
+
+  return (
+    <div className="page">
+      <Header
+        eyebrow="LIVE TRACKING"
+        title="Vehicle tracking"
+        subtitle="Broadcast your current position and shipment state to the logistics network."
+        icon={MapPinned}
+      />
+
+      <GlassCard>
+        <div className="card-head">
+          <h3>KM-VH-003</h3>
+          <span className="status">{status}</span>
+        </div>
+
+        <div className="live-map">
+          <div className="map-grid" />
+          <div className="map-route route-one" />
+          <div className="map-node node-a"><Truck size={15} /></div>
+        </div>
+
+        <div className="eta">
+          <b>18 min</b>
+          <span>Current ETA · GPS active</span>
+        </div>
+
+        <button
+          className="primary wide"
+          onClick={() =>
+            setStatus(status === "EN_ROUTE" ? "ARRIVED" : "EN_ROUTE")
+          }
+        >
+          {status === "EN_ROUTE" ? "Mark arrived" : "Resume trip"}
+        </button>
+      </GlassCard>
+    </div>
+  );
+}
+
+/* =========================================================
+   COLLECTION CENTRE
+========================================================= */
+
+function CollectionDashboard() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="COLLECTION CENTRE"
+        title="Collection operations"
+        subtitle="Receive farmer lots, inspect quality and prepare verified produce for packing."
+        icon={Boxes}
+      />
+
+      <div className="kpi-grid">
+        <Metric label="Incoming Lots" value="8" note="Today" icon={Boxes} />
+        <Metric label="Awaiting Inspection" value="3" note="Priority" icon={ScanLine} />
+        <Metric label="Grade A" value="72%" note="Today's lots" icon={CheckCircle2} />
+        <Metric label="Ready for Packing" value="5" note="Verified" icon={PackageCheck} />
+      </div>
+
+      <GlassCard>
+        <div className="card-head">
+          <h3>Collection workflow</h3>
+          <Route size={18} />
+        </div>
+
+        <Steps
+          items={["Incoming", "Verify QR", "Inspect", "Grade", "Packing"]}
+          current={2}
+        />
+
+        <Row title="KM-LOT-00421" subtitle="Tomato · 600 kg" value="INSPECT" icon={Leaf} />
+        <Row title="KM-LOT-00418" subtitle="Spinach · 90 kg" value="URGENT" icon={AlertTriangle} />
+      </GlassCard>
+    </div>
+  );
+}
+
+function CollectionIncoming() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="INCOMING LOTS"
+        title="Farmer arrivals"
+        subtitle="Verify incoming produce against pickup requests and lot identities."
+        icon={Boxes}
+      />
+
+      <GlassCard>
+        <div className="card-head">
+          <h3>Arrival queue</h3>
+          <ScanLine size={18} />
+        </div>
+
+        <Row title="KM-LOT-2026-00421" subtitle="Farmer KM-FMR-0001 · Tomato · 600 kg" value="ARRIVED" icon={Leaf} />
+        <Row title="KM-LOT-2026-00418" subtitle="Farmer KM-FMR-0008 · Spinach · 90 kg" value="WAITING" icon={Leaf} />
+        <ActionButton>Scan farmer / lot QR</ActionButton>
+      </GlassCard>
+    </div>
+  );
+}
+
+function CollectionInspection() {
+  const [grade, setGrade] = useState("A");
+  const [result, setResult] = useState("");
+
+  const inspect = async () => {
+    try {
+      const r = await api.post("/api/operations/grade/1", {
+        visual_quality: grade === "A" ? 92 : 72,
+        damage_pct: grade === "A" ? 3 : 12,
+        freshness: grade === "A" ? 90 : 68,
+        temperature_c: 11,
+        handling_delay_min: 18,
+        confirmed_grade: grade,
+      });
+
+      setResult(
+        `AI recommendation: ${r.data?.recommended_grade || grade}`
+      );
+    } catch {
+      setResult(`Inspection completed · Grade ${grade}`);
+    }
+  };
+
+  return (
+    <div className="page">
+      <Header
+        eyebrow="QUALITY INSPECTION"
+        title="AI grade inspection"
+        subtitle="Evaluate freshness, visual quality, damage and temperature before pricing."
+        icon={ScanLine}
+      />
+
+      <div className="grid-2">
+        <GlassCard>
+          <div className="card-head">
+            <h3>KM-LOT-2026-00421</h3>
+            <ScanLine size={18} />
+          </div>
+
+          <div className="lot-details">
+            <b>Tomato · 600 kg</b>
+            <span>Temperature: 11°C</span>
+            <span>Freshness: 90%</span>
+            <span>Damage: 3%</span>
+          </div>
+
+          <div className="grade-pills">
+            {["A", "B", "C"].map((g) => (
+              <button
+                key={g}
+                className={grade === g ? "selected" : ""}
+                onClick={() => setGrade(g)}
+              >
+                Grade {g}
+              </button>
+            ))}
+          </div>
+
+          <ActionButton onClick={inspect}>Run AI inspection</ActionButton>
+
+          {result && <div className="ai-result">{result}</div>}
+        </GlassCard>
+
+        <GlassCard>
+          <div className="card-head">
+            <h3>Quality decision</h3>
+            <Sparkles size={18} />
+          </div>
+
+          <Metric label="Freshness" value="90%" note="Good" icon={Leaf} />
+          <Metric label="Damage" value="3%" note="Low" icon={AlertTriangle} />
+        </GlassCard>
+      </div>
+    </div>
+  );
+}
+
+function CollectionPacking() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="PACKING"
+        title="Collection packing queue"
+        subtitle="Prepare verified lots for the package centre with complete traceability."
+        icon={PackageCheck}
+      />
+
+      <GlassCard>
+        <Steps
+          items={["Verified", "Grade", "Quantity", "Pack", "Handoff"]}
+          current={2}
+        />
+
+        <Row title="KM-LOT-00421" subtitle="Tomato · 580 kg usable" value="READY" icon={PackageCheck} />
+
+        <ActionButton>Confirm packing quantity</ActionButton>
+      </GlassCard>
+    </div>
+  );
+}
+
+function CollectionDispatch() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="DISPATCH"
+        title="Collection dispatch"
+        subtitle="Hand verified packages to the next logistics leg."
+        icon={Truck}
+      />
+
+      <div className="kpi-grid">
+        <Metric label="Ready" value="5" note="Packages" icon={PackageCheck} />
+        <Metric label="Drivers" value="4" note="Available" icon={Truck} />
+        <Metric label="Handoffs" value="7" note="Today" icon={Route} />
+        <Metric label="Pending" value="2" note="Need assignment" icon={Clock3} />
+      </div>
+
+      <GlassCard>
+        <Row title="PKG-2026-0091" subtitle="Tomato · Hyderabad Hub" value="READY" icon={PackageCheck} />
+        <Row title="PKG-2026-0090" subtitle="Potato · Hyderabad Hub" value="ASSIGNED" icon={Truck} />
+        <ActionButton>Assign dispatch vehicle</ActionButton>
+      </GlassCard>
+    </div>
+  );
+}
+
+/* =========================================================
+   PACKAGE CENTRE
+========================================================= */
+
+function PackageDashboard() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="PACKAGE CENTRE"
+        title="Packhouse control"
+        subtitle="Turn verified collection lots into traceable outbound packages."
+        icon={PackageCheck}
+      />
+
+      <div className="kpi-grid">
+        <Metric label="Incoming" value="7" note="Lots" icon={Boxes} />
+        <Metric label="Packing Queue" value="4" note="Active" icon={PackageCheck} />
+        <Metric label="Packed Today" value="18" note="Completed" icon={CheckCircle2} />
+        <Metric label="Outbound" value="6" note="Ready" icon={Truck} />
+      </div>
+
+      <GlassCard>
+        <Steps
+          items={["Receive", "Verify QR", "Pack", "Package QR", "Dispatch"]}
+          current={2}
+        />
+        <Row title="KM-LOT-00421" subtitle="Tomato · 580 kg" value="PACKING" icon={Leaf} />
+      </GlassCard>
+    </div>
+  );
+}
+
+function PackageIncoming() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="PACKAGE INCOMING"
+        title="Receive collection lots"
+        subtitle="Verify incoming lots before they enter the packing line."
+        icon={Boxes}
+      />
+
+      <GlassCard>
+        <Row title="KM-LOT-00421" subtitle="Tomato · 600 kg · Grade A" value="RECEIVED" icon={Leaf} />
+        <Row title="KM-LOT-00418" subtitle="Spinach · 90 kg · Grade B" value="WAITING" icon={Leaf} />
+        <ActionButton>Verify lot QR</ActionButton>
+      </GlassCard>
+    </div>
+  );
+}
+
+function PackagePacking() {
+  const [packed, setPacked] = useState(false);
+
+  return (
+    <div className="page">
+      <Header
+        eyebrow="PACKING LINE"
+        title="Package preparation"
+        subtitle="Pack, label and generate the next traceability identity."
+        icon={PackageCheck}
+      />
+
+      <div className="grid-2">
+        <GlassCard>
+          <div className="card-head">
+            <h3>Active package</h3>
+            <ScanLine size={18} />
+          </div>
+
+          <div className="lot-details">
+            <b>PKG-2026-0091</b>
+            <span>Source lot: KM-LOT-00421</span>
+            <span>Tomato · 580 kg</span>
+            <span>Destination: Hyderabad Hub</span>
+          </div>
+
+          <button className="primary wide" onClick={() => setPacked(true)}>
+            {packed ? "Package QR generated" : "Confirm packing & generate QR"}
+          </button>
+        </GlassCard>
+
+        <GlassCard>
+          <div className="card-head">
+            <h3>Packing stages</h3>
+            <PackageCheck size={18} />
+          </div>
+
+          <Steps
+            items={["Quantity", "Packaging", "Label", "QR", "Handoff"]}
+            current={packed ? 3 : 1}
+          />
+        </GlassCard>
+      </div>
+    </div>
+  );
+}
+
+function PackageDispatch() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="PACKAGE DISPATCH"
+        title="Outbound package queue"
+        subtitle="Assign verified packages to the next city-hub transport leg."
+        icon={Truck}
+      />
+
+      <GlassCard>
+        <Row title="PKG-2026-0091" subtitle="Tomato · 580 kg · Hyderabad Hub" value="READY" icon={PackageCheck} />
+        <Row title="PKG-2026-0090" subtitle="Potato · 410 kg · Hyderabad Hub" value="READY" icon={Boxes} />
+        <ActionButton>Assign outbound vehicle</ActionButton>
+      </GlassCard>
+    </div>
+  );
+}
+
+/* =========================================================
+   CITY HUB
+========================================================= */
+
+function HubDashboard() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="CITY HUB"
+        title="Hub operations"
+        subtitle="Manage incoming inventory, freshness priority and last-mile dispatch."
+        icon={MapPinned}
+      />
+
+      <div className="kpi-grid">
+        <Metric label="Incoming" value="9" note="Shipments" icon={Truck} />
+        <Metric label="Inventory" value="1.8 t" note="Four crops" icon={Boxes} />
+        <Metric label="FEFO Priority" value="5" note="Freshness driven" icon={Leaf} />
+        <Metric label="Last Mile" value="7" note="Assignments" icon={Route} />
+      </div>
+
+      <GlassCard>
+        <Steps
+          items={["Incoming", "Receive", "Inventory", "FEFO", "Last Mile"]}
+          current={3}
+        />
+      </GlassCard>
+    </div>
+  );
+}
+
+function HubIncoming() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="HUB INCOMING"
+        title="Incoming shipments"
+        subtitle="Receive packages from collection and package centres."
+        icon={Truck}
+      />
+
+      <GlassCard>
+        <Row title="PKG-2026-0091" subtitle="Tomato · 580 kg" value="ARRIVING" icon={Truck} />
+        <Row title="PKG-2026-0090" subtitle="Potato · 410 kg" value="EXPECTED" icon={Truck} />
+        <ActionButton>Confirm hub receipt</ActionButton>
+      </GlassCard>
+    </div>
+  );
+}
+
+function HubInventory() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="HUB INVENTORY"
+        title="Fresh inventory"
+        subtitle="Monitor crop quantities and freshness-driven FEFO priorities."
+        icon={Boxes}
+      />
+
+      <div className="grid-2">
+        <GlassCard>
+          <Row title="Tomato" subtitle="580 kg · Freshness 82%" value="TODAY" icon={Leaf} />
+          <Row title="Potato" subtitle="410 kg · Freshness 88%" value="NORMAL" icon={Boxes} />
+          <Row title="Spinach" subtitle="90 kg · Freshness 61%" value="URGENT" icon={AlertTriangle} />
+          <Row title="Onion" subtitle="280 kg · Freshness 78%" value="NORMAL" icon={Boxes} />
+        </GlassCard>
+
+        <GlassCard>
+          <div className="card-head">
+            <h3>FEFO priority</h3>
+            <Leaf size={18} />
+          </div>
+
+          <div className="big-number">
+            61<small>% freshness</small>
+          </div>
+
+          <p>Spinach should be dispatched first to reduce spoilage risk.</p>
+
+          <ActionButton>Prioritize spinach</ActionButton>
+        </GlassCard>
+      </div>
+    </div>
+  );
+}
+
+function HubVehicles() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="HUB VEHICLES"
+        title="Last-mile fleet"
+        subtitle="See compatible city vehicles and their current availability."
+        icon={Truck}
+      />
+
+      <div className="kpi-grid">
+        <Metric label="Available" value="8" note="Vehicles" icon={CheckCircle2} />
+        <Metric label="Busy" value="5" note="On delivery" icon={Truck} />
+        <Metric label="Reefer" value="4" note="Cold-chain" icon={Leaf} />
+        <Metric label="Capacity" value="6.2 t" note="Available" icon={Boxes} />
+      </div>
+
+      <GlassCard>
+        <Row title="KM-VH-011" subtitle="City Van · 600 kg" value="AVAILABLE" icon={Truck} />
+        <Row title="KM-VH-012" subtitle="Mini Truck · 800 kg" value="AVAILABLE" icon={Truck} />
+        <Row title="KM-VH-014" subtitle="Reefer · 1,200 kg" value="BUSY" icon={Truck} />
+      </GlassCard>
+    </div>
+  );
+}
+
+function HubLastMile() {
+  return (
+    <div className="page">
+      <Header
+        eyebrow="LAST MILE"
+        title="Delivery assignment"
+        subtitle="Match hub inventory to customer destinations and suitable city vehicles."
+        icon={Route}
+      />
+
+      <div className="grid-2">
+        <GlassCard>
+          <div className="card-head">
+            <h3>Priority delivery</h3>
+            <AlertTriangle size={18} />
+          </div>
+
+          <Row
+            title="Gachibowli cluster"
+            subtitle="Tomato · 500 kg"
+            value="HIGH"
+            icon={Leaf}
+          />
+
+          <Row
+            title="Customer window"
+            subtitle="10:00 – 13:00"
+            value="TODAY"
+            icon={Clock3}
+          />
+        </GlassCard>
+
+        <GlassCard>
+          <div className="card-head">
+            <h3>Best vehicle</h3>
+            <Truck size={18} />
+          </div>
+
+          <div className="recommend">
+            <Truck size={25} />
+            <div>
+              <b>KM-VH-011 · City Van</b>
+              <span>600 kg capacity · 4.2 km away</span>
+              <small>91% compatibility with delivery cluster.</small>
+            </div>
+            <span className="score">91</span>
+          </div>
+
+          <ActionButton>Assign last-mile vehicle</ActionButton>
+        </GlassCard>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   ADMIN
+========================================================= */
+
+function AdminPage({ page }: { page?: string }) {
+  if (page === "Orders") {
+    return (
+      <div className="page">
+        <Header
+          eyebrow="ORDER CONTROL"
+          title="Order command centre"
+          subtitle="Monitor customer orders entering the logistics network."
+          icon={ShoppingCart}
+        />
+
+        <div className="kpi-grid">
+          <Metric label="Active Orders" value="12" note="Today" icon={ShoppingCart} />
+          <Metric label="Pending" value="5" note="Aggregation queue" icon={Clock3} />
+          <Metric label="Matched" value="4" note="Farmer matches" icon={Users} />
+          <Metric label="Fulfilled" value="3" note="Completed" icon={CheckCircle2} />
+        </div>
+
+        <GlassCard>
+          <div className="card-head">
+            <h3>Live order queue</h3>
+            <Activity size={18} />
+          </div>
+          <Row title="KM-ORD-1025" subtitle="Tomato · 300 kg · Gachibowli" value="AGGREGATING" icon={ShoppingCart} />
+          <Row title="KM-ORD-1026" subtitle="Tomato · 200 kg · Gachibowli" value="MATCHED" icon={ShoppingCart} />
+          <Row title="KM-ORD-1027" subtitle="Potato · 150 kg · Hyderabad" value="PICKUP" icon={ShoppingCart} />
+        </GlassCard>
+      </div>
+    );
+  }
+
+  if (page === "Demand") {
+    return (
+      <div className="page">
+        <Header
+          eyebrow="DEMAND ENGINE"
+          title="Demand aggregation"
+          subtitle="Consolidate fragmented customer orders into efficient crop-level demand."
+          icon={BarChart3}
+        />
+
+        <div className="kpi-grid">
+          <Metric label="Tomato" value="500 kg" note="2 orders" icon={Leaf} />
+          <Metric label="Onion" value="280 kg" note="4 orders" icon={Boxes} />
+          <Metric label="Potato" value="420 kg" note="5 orders" icon={Boxes} />
+          <Metric label="Spinach" value="90 kg" note="Urgent" icon={Leaf} />
+        </div>
+
+        <GlassCard>
+          <Steps
+            items={["Customer Orders", "Grouping", "Aggregation", "Farmer Match", "Pickup"]}
+            current={2}
+          />
+
+          <div className="big-number">
+            1,290 <small>kg aggregated</small>
+          </div>
+
+          <ActionButton
+            onClick={() =>
+              api.post("/api/operations/aggregate").catch(console.error)
+            }
+          >
+            Run demand aggregation
+          </ActionButton>
+        </GlassCard>
+      </div>
+    );
+  }
+
+  if (page === "AI Insights") {
+    return (
+      <div className="page">
+        <Header
+          eyebrow="AI INTELLIGENCE"
+          title="Decision intelligence"
+          subtitle="AI signals for demand, freshness, vehicle matching and routing."
+          icon={Sparkles}
+        />
+
+        <div className="grid-2">
+          <GlassCard>
+            <div className="card-head">
+              <h3>Demand signal</h3>
+              <BarChart3 size={18} />
+            </div>
+            <div className="big-number">+18%</div>
+            <p>Tomato demand is forecast to rise in the next delivery window.</p>
+          </GlassCard>
+
+          <GlassCard>
+            <div className="card-head">
+              <h3>Freshness signal</h3>
+              <AlertTriangle size={18} />
+            </div>
+            <div className="big-number">4 <small>critical lots</small></div>
+            <p>Prioritize perishability-sensitive shipments.</p>
+          </GlassCard>
+
+          <GlassCard>
+            <div className="card-head">
+              <h3>Vehicle intelligence</h3>
+              <Truck size={18} />
+            </div>
+            <div className="big-number">94 <small>match score</small></div>
+            <p>KM-VH-003 is the best fit for the tomato shipment.</p>
+          </GlassCard>
+
+          <GlassCard>
+            <div className="card-head">
+              <h3>Route intelligence</h3>
+              <Route size={18} />
+            </div>
+            <div className="big-number">-14%</div>
+            <p>Estimated route distance after optimization.</p>
+          </GlassCard>
+        </div>
+      </div>
+    );
+  }
+
+  if (page === "Freshness") {
+    return (
+      <div className="page">
+        <Header
+          eyebrow="FRESHNESS CONTROL"
+          title="Perishability command centre"
+          subtitle="Identify produce at risk and prioritize movement using freshness."
+          icon={Leaf}
+        />
+
+        <div className="kpi-grid">
+          <Metric label="Critical Lots" value="4" note="Immediate" icon={AlertTriangle} />
+          <Metric label="Average Freshness" value="81%" note="Network" icon={Leaf} />
+          <Metric label="FEFO Queue" value="7" note="Move first" icon={Clock3} />
+          <Metric label="Risk Reduced" value="17%" note="This week" icon={CheckCircle2} />
+        </div>
+
+        <GlassCard>
+          <Row title="KM-LOT-00418 · Spinach" subtitle="Freshness 61%" value="CRITICAL" icon={AlertTriangle} />
+          <Row title="KM-LOT-00421 · Tomato" subtitle="Freshness 82%" value="MEDIUM" icon={Leaf} />
+          <Row title="KM-LOT-00417 · Potato" subtitle="Freshness 88%" value="LOW" icon={Boxes} />
+        </GlassCard>
+      </div>
+    );
+  }
+
+  if (page === "Routes") {
+    return (
+      <div className="page">
+        <Header
+          eyebrow="ROUTE ENGINE"
+          title="Route optimization"
+          subtitle="Optimize routes around capacity, delivery windows and freshness urgency."
+          icon={Route}
+        />
+
+        <div className="kpi-grid">
+          <Metric label="Active Routes" value="8" note="Hyderabad" icon={Route} />
+          <Metric label="Distance Saved" value="14%" note="Optimized" icon={MapPinned} />
+          <Metric label="Vehicles Matched" value="8/8" note="Compatible" icon={Truck} />
+          <Metric label="Cold Chain" value="6" note="Reefer routes" icon={Leaf} />
+        </div>
+
+        <div className="grid-2">
+          <GlassCard>
+            <Steps
+              items={["Shipments", "Vehicles", "Compatibility", "Freshness", "Dispatch"]}
+              current={3}
+            />
+          </GlassCard>
+
+          <GlassCard>
+            <div className="recommend">
+              <Truck size={25} />
+              <div>
+                <b>KM-VH-003 · Reefer</b>
+                <span>1,200 kg · 7.8 km away</span>
+                <small>Best tomato route compatibility.</small>
+              </div>
+              <span className="score">94</span>
+            </div>
+
+            <ActionButton
+              onClick={() =>
+                api.post("/api/operations/route").catch(console.error)
+              }
+            >
+              Optimize route
+            </ActionButton>
+          </GlassCard>
+        </div>
+      </div>
+    );
+  }
+
+  if (page === "Live Tracking") {
+    return (
+      <div className="page">
+        <Header
+          eyebrow="LIVE FLEET"
+          title="Live shipment tracking"
+          subtitle="Monitor active vehicles and their current logistics state."
+          icon={MapPinned}
+        />
+
+        <div className="grid-2">
+          <GlassCard>
+            <div className="card-head">
+              <h3>Hyderabad network</h3>
+              <Activity size={18} />
+            </div>
+
+            <div className="live-map">
+              <div className="map-grid" />
+              <div className="map-route route-one" />
+              <div className="map-route route-two" />
+              <div className="map-node node-a"><Truck size={15} /></div>
+              <div className="map-node node-b"><Truck size={15} /></div>
+              <div className="map-node node-c"><Truck size={15} /></div>
+              <div className="map-label">LIVE FLEET</div>
+            </div>
+          </GlassCard>
+
+          <GlassCard>
+            <Row title="KM-VH-003" subtitle="Tomato · 500 kg" value="18 min" icon={Truck} />
+            <Row title="KM-VH-006" subtitle="Potato · 420 kg" value="32 min" icon={Truck} />
+            <Row title="KM-VH-002" subtitle="Spinach · 90 kg" value="11 min" icon={AlertTriangle} />
+          </GlassCard>
+        </div>
+      </div>
+    );
+  }
+
+  if (page === "Analytics") {
+    return (
+      <div className="page">
+        <Header
+          eyebrow="ANALYTICS"
+          title="Logistics performance"
+          subtitle="Measure service quality, vehicle utilization, freshness and operating cost."
+          icon={BarChart3}
+        />
+
+        <div className="kpi-grid">
+          <Metric label="On-Time Delivery" value="94%" note="+4.2%" icon={CheckCircle2} />
+          <Metric label="Vehicle Utilization" value="92%" note="Fleet average" icon={Truck} />
+          <Metric label="Freshness Saved" value="17%" note="Spoilage reduction" icon={Leaf} />
+          <Metric label="Cost / kg" value="?3.20" note="Network average" icon={IndianRupee} />
+        </div>
+
+        <GlassCard>
+          <div className="card-head">
+            <h3>Delivery trend</h3>
+            <BarChart3 size={18} />
+          </div>
+
+          {[
+            ["Monday", 86],
+            ["Tuesday", 89],
+            ["Wednesday", 92],
+            ["Thursday", 91],
+            ["Friday", 94],
+            ["Saturday", 96],
+          ].map(([day, value]) => (
+            <div className="analytics-bar" key={day as string}>
+              <span>{day}</span>
+              <div>
+                <i style={{ width: `${value}%` }} />
+              </div>
+              <b>{value}%</b>
+            </div>
+          ))}
+        </GlassCard>
+      </div>
+    );
+  }
+
+  if (page === "Alerts") {
+    const alerts = [
+      ["Spinach freshness critical", "61% freshness", "HIGH"],
+      ["Tomato route approaching window", "18 min ETA", "MEDIUM"],
+      ["Grade changed A ? B", "Pricing recalculation", "MEDIUM"],
+    ];
+
+    return (
+      <div className="page">
+        <Header
+          eyebrow="EXCEPTIONS"
+          title="Alerts & intervention"
+          subtitle="Resolve operational issues before they affect freshness or delivery."
+          icon={AlertTriangle}
+        />
+
+        <div className="kpi-grid">
+          <Metric label="Critical" value="1" note="Immediate" icon={AlertTriangle} />
+          <Metric label="Medium" value="2" note="Action required" icon={Clock3} />
+          <Metric label="Open" value="3" note="Active" icon={Activity} />
+          <Metric label="Resolved" value="9" note="Today" icon={CheckCircle2} />
+        </div>
+
+        <GlassCard>
+          {alerts.map(([title, detail, priority]) => (
+            <Row
+              key={title}
+              title={title}
+              subtitle={detail}
+              value={priority}
+              icon={AlertTriangle}
+            />
+          ))}
+        </GlassCard>
+      </div>
+    );
+  }
+
+  if (page === "Traceability") {
+    return (
+      <div className="page">
+        <Header
+          eyebrow="TRACEABILITY"
+          title="Chain of custody"
+          subtitle="Trace produce from farmer harvest through collection, packing, hub and delivery."
+          icon={ScanLine}
+        />
+
+        <div className="grid-2">
+          <GlassCard>
+            <div className="card-head">
+              <h3>Lot identity</h3>
+              <ScanLine size={18} />
+            </div>
+
+            <div className="lot-hero">
+              <div className="qr-placeholder">
+                <div /><div /><div />
+                <div /><div /><div />
+                <div /><div /><div />
+              </div>
+
+              <div>
+                <b>KM-LOT-2026-00421</b>
+                <span>Tomato · 600 kg</span>
+                <span>Grade A ? B</span>
+                <span>Current stage: Package Centre</span>
+              </div>
+            </div>
+          </GlassCard>
+
+          <GlassCard>
+            <Steps
+              items={["Farmer", "Collection", "Package", "Hub", "Customer"]}
+              current={2}
+            />
+          </GlassCard>
+        </div>
+      </div>
+    );
+  }
+
+  if (page === "Settings") {
+    return (
+      <div className="page">
+        <Header
+          eyebrow="SYSTEM SETTINGS"
+          title="Control tower configuration"
+          subtitle="Configure operating area, freshness thresholds and automation."
+          icon={PackageCheck}
+        />
+
+        <div className="grid-2">
+          <GlassCard>
+            <div className="card-head">
+              <h3>Network</h3>
+              <MapPinned size={18} />
+            </div>
+
+            <label>
+              Operating city
+              <input className="text-input" value="Hyderabad, Telangana" readOnly />
+            </label>
+
+            <label>
+              Freshness priority
+              <input className="text-input" value="70%" readOnly />
+            </label>
+
+            <label>
+              Delivery window
+              <input className="text-input" value="10:00 – 13:00" readOnly />
+            </label>
+          </GlassCard>
+
+          <GlassCard>
+            <div className="card-head">
+              <h3>Automation</h3>
+              <Sparkles size={18} />
+            </div>
+
+            <div className="check"><CheckCircle2 size={18} /> Demand aggregation</div>
+            <div className="check"><CheckCircle2 size={18} /> Freshness-aware routing</div>
+            <div className="check"><CheckCircle2 size={18} /> AI vehicle matching</div>
+            <div className="check"><CheckCircle2 size={18} /> Live tracking</div>
+
+            <ActionButton>Save configuration</ActionButton>
+          </GlassCard>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="page">
+      <Header
+        eyebrow="LOGISTICS CONTROL TOWER"
+        title="Krishi Marg operations"
+        subtitle="One control tower for demand, freshness, vehicles, routes and delivery."
+        icon={Activity}
+      />
+
+      <div className="kpi-grid">
+        <Metric label="Active Orders" value="12" note="Today" icon={ShoppingCart} />
+        <Metric label="Freshness Critical" value="4" note="Priority queue" icon={AlertTriangle} />
+        <Metric label="Active Vehicles" value="8" note="92% utilization" icon={Truck} />
+        <Metric label="On-Time Delivery" value="94%" note="+4.2% today" icon={CheckCircle2} />
+        <Metric label="Demand Served" value="91%" note="Four crops" icon={Leaf} />
+      </div>
+
+      <div className="grid-2">
+        <GlassCard>
+          <div className="card-head">
+            <h3>End-to-end logistics flow</h3>
+            <Route size={18} />
+          </div>
+
+          <Steps
+            items={[
+              "Orders",
+              "Demand",
+              "Farmer",
+              "Pickup",
+              "Collection",
+              "Package",
+              "Hub",
+              "Delivery",
+            ]}
+            current={5}
+          />
+        </GlassCard>
+
+        <GlassCard>
+          <div className="card-head">
+            <h3>Live network signals</h3>
+            <Activity size={18} />
+          </div>
+
+          <Row title="Tomato demand aggregated" subtitle="500 kg" value="READY" icon={ShoppingCart} />
+          <Row title="Farmer matched" subtitle="600 kg supply" value="MATCHED" icon={Users} />
+          <Row title="Vehicle assigned" subtitle="KM-VH-003" value="94%" icon={Truck} />
+          <Row title="Freshness alert" subtitle="Spinach lot" value="HIGH" icon={AlertTriangle} />
+        </GlassCard>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   FINAL ROLE + PAGE ROUTER
+========================================================= */
+
+export default function RoleWorkspace({
+  role,
+  page,
+}: {
+  role: string;
+  page?: string;
+}) {
+  const p = page || "Dashboard";
+
+  if (role === "customer") {
+    if (p === "Orders") return <CustomerOrders />;
+    if (p === "Marketplace") return <CustomerMarketplace />;
+    if (p === "Tracking") return <CustomerTracking />;
+    return <CustomerDashboard />;
+  }
+
+  if (role === "farmer") {
+    if (p === "My Produce") return <FarmerProduce />;
+    if (p === "Demand Matches") return <FarmerMatches />;
+    if (p === "Pickup") return <FarmerPickup />;
+    if (p === "Earnings") return <FarmerEarnings />;
+    return <FarmerDashboard />;
+  }
+
+  if (role === "driver") {
+    if (p === "Trips") return <DriverTrips />;
+    if (p === "Route") return <DriverRoute />;
+    if (p === "Tracking") return <DriverTracking />;
+    return <DriverDashboard />;
+  }
+
+  if (role === "collection") {
+    if (p === "Incoming Lots" || p === "Incoming") return <CollectionIncoming />;
+    if (p === "Inspection") return <CollectionInspection />;
+    if (p === "Packing") return <CollectionPacking />;
+    if (p === "Dispatch") return <CollectionDispatch />;
+    return <CollectionDashboard />;
+  }
+
+  if (role === "package") {
+    if (p === "Incoming") return <PackageIncoming />;
+    if (p === "Packing") return <PackagePacking />;
+    if (p === "Dispatch") return <PackageDispatch />;
+    return <PackageDashboard />;
+  }
+
+  if (role === "hub") {
+    if (p === "Incoming") return <HubIncoming />;
+    if (p === "Inventory") return <HubInventory />;
+    if (p === "Vehicles") return <HubVehicles />;
+    if (p === "Last Mile" || p === "Last-Mile") return <HubLastMile />;
+    return <HubDashboard />;
+  }
+
+  return <AdminPage page={p} />;
+}
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\pages\auth\Login.tsx ====================
+import { useState } from "react";
+import { motion } from "framer-motion";
+import {
+  Leaf,
+  ArrowRight,
+  ShieldCheck,
+  Sparkles,
+  MapPin,
+  Package,
+  Warehouse,
+  UserRound,
+} from "lucide-react";
+import { api } from "../../services/api";
+import { useAuth } from "../../store/auth";
+
+const demos = [
+  "admin",
+  "farmer",
+  "customer",
+  "driver",
+  "collection",
+  "package",
+  "hub",
+];
+
+const nodes = [
+  { label: "Farm", icon: Leaf },
+  { label: "Collection", icon: Package },
+  { label: "Packhouse", icon: Warehouse },
+  { label: "City Hub", icon: MapPin },
+  { label: "Customer", icon: UserRound },
+];
+
+export default function Login() {
+  const [email, setEmail] = useState("admin@krishimarg.local");
+  const [password, setPassword] = useState("Krishi@123");
+  const [loading, setLoading] = useState(false);
+  const setUser = useAuth((s) => s.setUser);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const r = await api.post("/api/auth/login", { email, password });
+      localStorage.setItem("km_token", r.data.access_token);
+      setUser(r.data.user);
+    } catch {
+      alert("Login failed. Try the demo credentials.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="login-page">
+
+      {/* LEFT VISUAL */}
+      <section className="login-visual">
+
+        <div className="login-glow login-glow-one" />
+        <div className="login-glow login-glow-two" />
+
+        <motion.div
+          className="login-sun"
+          animate={{ scale: [1, 1.08, 1], opacity: [0.55, 0.8, 0.55] }}
+          transition={{ duration: 7, repeat: Infinity }}
+        />
+
+        <motion.div
+          className="login-cloud login-cloud-one"
+          animate={{ x: [0, 45, 0] }}
+          transition={{ duration: 24, repeat: Infinity, ease: "easeInOut" }}
+        />
+
+        <motion.div
+          className="login-cloud login-cloud-two"
+          animate={{ x: [0, -35, 0] }}
+          transition={{ duration: 28, repeat: Infinity, ease: "easeInOut" }}
+        />
+
+        {/* BRAND */}
+        <motion.div
+          className="login-brand"
+          initial={{ opacity: 0, y: -15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7 }}
+        >
+          <div className="login-brandmark">
+            <Leaf size={25} />
+          </div>
+
+          <div>
+            <strong>Krishi Marg</strong>
+            <span>Connecting Farms to Markets</span>
+          </div>
+        </motion.div>
+
+        {/* HERO */}
+        <motion.div
+          className="login-copy"
+          initial={{ opacity: 0, y: 25 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+        >
+          <div className="login-kicker">
+            <span />
+            INTELLIGENT AGRICULTURAL LOGISTICS
+          </div>
+
+          <h1>
+            Right produce.
+            <br />
+            <em>Right vehicle.</em>
+            <br />
+            Right route.
+            <br />
+            <strong>On time.</strong>
+          </h1>
+
+          <p>
+            Perishability-aware agricultural logistics connecting
+            demand, supply, freshness and movement in one intelligent
+            network.
+          </p>
+        </motion.div>
+
+        {/* LANDSCAPE */}
+        <div className="login-landscape">
+
+          <motion.div
+            className="login-sun"
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 6, repeat: Infinity }}
+          />
+
+          <svg
+            className="landscape-hills"
+            viewBox="0 0 1200 350"
+            preserveAspectRatio="none"
+          >
+            <path
+              className="hill-back"
+              d="M0 245 C130 175 220 205 350 135 C470 70 575 170 700 125 C830 75 930 155 1040 105 C1120 75 1165 100 1200 65 L1200 350 L0 350Z"
+            />
+            <path
+              className="hill-front"
+              d="M0 270 C145 205 270 245 405 175 C530 115 640 205 775 160 C905 110 1000 195 1115 145 C1160 125 1180 135 1200 120 L1200 350 L0 350Z"
+            />
+          </svg>
+
+          {/* FIELD */}
+          <div className="login-field">
+            {Array.from({ length: 30 }).map((_, i) => (
+              <motion.div
+                key={i}
+                className="login-crop"
+                style={{
+                  left: `${4 + (i % 10) * 9}%`,
+                  bottom: `${22 + Math.floor(i / 10) * 18}px`,
+                }}
+                animate={{
+                  rotate: [-2, 2, -2],
+                  scaleY: [0.92, 1.05, 0.92],
+                }}
+                transition={{
+                  duration: 3 + (i % 4) * 0.3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: i * 0.06,
+                }}
+              >
+                <span className="crop-leaf-left" />
+                <span className="crop-leaf-right" />
+              </motion.div>
+            ))}
+          </div>
+
+          {/* ROAD */}
+          <div className="login-road">
+            <motion.div
+              className="road-marker"
+              animate={{ y: [0, 90] }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+            />
+          </div>
+
+          {/* TRUCK */}
+          <motion.div
+            className="login-truck"
+            animate={{ x: [0, 100, 0] }}
+            transition={{
+              duration: 9,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          >
+            <div className="truck-shadow" />
+
+            <div className="truck-body">
+              <div className="truck-storage">
+                <span />
+                <span />
+                <span />
+              </div>
+
+              <div className="truck-cabin">
+                <div className="truck-window" />
+              </div>
+            </div>
+
+            <div className="truck-wheel truck-wheel-one" />
+            <div className="truck-wheel truck-wheel-two" />
+          </motion.div>
+        </div>
+
+        {/* NETWORK */}
+        <motion.div
+          className="network-panel"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <div className="network-panel-header">
+            <div>
+              <span>LIVE NETWORK</span>
+              <strong>Supply movement</strong>
+            </div>
+
+            <div className="network-live">
+              <span />
+              LIVE
+            </div>
+          </div>
+
+          <div className="network-route">
+
+            <motion.div
+              className="network-progress"
+              animate={{ width: ["0%", "100%"] }}
+              transition={{
+                duration: 5,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+            />
+
+            {nodes.map((node, index) => {
+              const Icon = node.icon;
+
+              return (
+                <motion.div
+                  className="network-stop"
+                  key={node.label}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.8 + index * 0.12 }}
+                >
+                  <motion.div
+                    className="network-node"
+                    animate={{ scale: [1, 1.08, 1] }}
+                    transition={{
+                      duration: 2.5,
+                      repeat: Infinity,
+                      delay: index * 0.35,
+                    }}
+                  >
+                    <Icon size={15} />
+                  </motion.div>
+
+                  <span>{node.label}</span>
+                </motion.div>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* AI SIGNAL */}
+        <motion.div
+          className="login-ai-signal"
+          animate={{ y: [0, -5, 0] }}
+          transition={{ duration: 4, repeat: Infinity }}
+        >
+          <div className="ai-signal-icon">
+            <Sparkles size={15} />
+          </div>
+
+          <div>
+            <small>AI FIELD SIGNAL</small>
+            <strong>Tomato demand rising</strong>
+            <span>+18% expected tomorrow</span>
+          </div>
+        </motion.div>
+
+      </section>
+
+      {/* RIGHT LOGIN */}
+      <section className="login-form-side">
+
+        <motion.form
+          className="login-card"
+          onSubmit={submit}
+          initial={{ opacity: 0, x: 35 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.7 }}
+        >
+
+          <div className="eyebrow">
+            <ShieldCheck size={15} />
+            Secure operations network
+          </div>
+
+          <h2>Welcome back</h2>
+
+          <p className="login-subtitle">
+            Sign in to your Krishi Marg workspace.
+          </p>
+
+          <label>
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+          </label>
+
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </label>
+
+          <motion.button
+            className="primary wide login-submit"
+            disabled={loading}
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            {loading ? "Signing in..." : "Sign in"}
+            <ArrowRight size={17} />
+          </motion.button>
+
+          <div className="demo-label">
+            <Sparkles size={14} />
+            One-click demo roles
+          </div>
+
+          <div className="demo-grid">
+            {demos.map((role) => (
+              <motion.button
+                type="button"
+                key={role}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => {
+                  setEmail(`${role}@krishimarg.local`);
+                  setPassword("Krishi@123");
+                }}
+              >
+                {role}
+              </motion.button>
+            ))}
+          </div>
+
+          <small className="hint">
+            Demo access enabled for prototype evaluation
+          </small>
+
+        </motion.form>
+
+      </section>
+    </div>
+  );
+}
+
+
+==================== C:\KRISHI-MARG\frontend\src\services\api.ts ====================
+import axios from 'axios';
+export const API=import.meta.env.VITE_API_URL||'http://localhost:8000';
+export const api=axios.create({baseURL:API});
+api.interceptors.request.use(c=>{const t=localStorage.getItem('km_token');if(t)c.headers.Authorization=`Bearer ${t}`;return c});
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\store\auth.ts ====================
+import{create}from'zustand';
+type User={id:number;name:string;role:string;email:string};type S={user:User|null;setUser:(u:User)=>void;logout:()=>void};
+export const useAuth=create<S>(set=>({user:JSON.parse(localStorage.getItem('km_user')||'null'),setUser:u=>{localStorage.setItem('km_user',JSON.stringify(u));set({user:u})},logout:()=>{localStorage.clear();set({user:null})}}));
+
+
+
+==================== C:\KRISHI-MARG\frontend\src\utils\roles.ts ====================
+export const navByRole:any={admin:['Dashboard','Orders','Demand','AI Insights','Freshness','Routes','Live Tracking','Analytics','Alerts','Traceability','Settings'],farmer:['Dashboard','My Produce','Demand Matches','Orders','Pickup','Earnings','Traceability'],customer:['Dashboard','Marketplace','Orders','Tracking','Traceability'],driver:['Dashboard','Trips','Route','Tracking','Earnings'],collection:['Dashboard','Incoming Lots','Inspection','Packing','Dispatch'],package:['Dashboard','Incoming','Packing','Dispatch'],hub:['Dashboard','Incoming','Routes','Dispatch']};
+

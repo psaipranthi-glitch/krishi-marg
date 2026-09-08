@@ -1,0 +1,927 @@
+﻿
+
+==================== C:\KRISHI-MARG\backend\app\config.py ====================
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):
+    database_url: str = "sqlite:///./krishi_marg.db"
+    jwt_secret: str = "change-me-in-local-env"
+    osrm_url: str = "https://router.project-osrm.org"
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    operating_city: str = "Hyderabad"
+    operating_lat: float = 17.3850
+    operating_lon: float = 78.4867
+    service_radius_km: float = 55
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+settings = Settings()
+
+
+
+==================== C:\KRISHI-MARG\backend\app\database.py ====================
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from .config import settings
+
+class Base(DeclarativeBase):
+    pass
+
+# SQLite keeps the hackathon prototype completely local: no PostgreSQL/Docker install is required.
+connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+engine = create_engine(settings.database_url, pool_pre_ping=True, connect_args=connect_args)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+
+==================== C:\KRISHI-MARG\backend\app\main.py ====================
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI(
+    title="Krishi Marg API",
+    description="Perishability-Aware Agricultural Transportation & Logistics",
+    version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/")
+def root():
+    return {
+        "name": "KRISHI MARG",
+        "message": "Right produce. Right vehicle. Right route. On time.",
+        "status": "online",
+        "docs": "/docs"
+    }
+
+@app.get("/health")
+def health():
+    return {"status": "healthy"}
+
+from app.routers import auth, orders, dashboard, map, ai, operations, demo, traceability
+
+app.include_router(auth.r)
+app.include_router(orders.r)
+app.include_router(dashboard.r)
+app.include_router(map.r)
+app.include_router(ai.r)
+app.include_router(operations.r)
+app.include_router(demo.r)
+app.include_router(traceability.r)
+
+@app.on_event("startup")
+async def startup():
+    print("=" * 60)
+    print("KRISHI MARG API STARTED")
+    print("API:  http://127.0.0.1:8000")
+    print("Docs: http://127.0.0.1:8000/docs")
+    print("=" * 60)
+
+
+
+
+==================== C:\KRISHI-MARG\backend\app\__init__.py ====================
+
+
+
+==================== C:\KRISHI-MARG\backend\app\ai\forecast.py ====================
+from datetime import date,timedelta
+from sqlalchemy import select, func
+from ..models import Order, OrderItem, Commodity
+
+def forecast(db, commodity: Commodity):
+    q=db.execute(select(func.coalesce(func.sum(OrderItem.quantity_kg),0)).join(Order,Order.id==OrderItem.order_id).where(OrderItem.commodity_id==commodity.id)).scalar_one()
+    baseline=float(q or 500)
+    factor={'tomato':1.12,'onion':1.08,'potato':1.04,'spinach':1.15}.get(commodity.slug,1.05)
+    demand=round(max(300,baseline*factor/3),0)
+    return {'commodity':commodity.name,'forecast_date':str(date.today()+timedelta(days=1)),'demand_kg':demand,'trend_pct':round((factor-1)*100,1),'confidence_pct':84 if commodity.slug=='tomato' else 79}
+
+
+
+==================== C:\KRISHI-MARG\backend\app\ai\__init__.py ====================
+from .forecast import forecast
+
+
+
+==================== C:\KRISHI-MARG\backend\app\models\core.py ====================
+from datetime import datetime, date
+from sqlalchemy import String, Integer, Float, Boolean, DateTime, Date, ForeignKey, Text
+from sqlalchemy.orm import Mapped, mapped_column
+from ..database import Base
+
+class User(Base):
+    __tablename__='users'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    email: Mapped[str]=mapped_column(String(180), unique=True, index=True)
+    password_hash: Mapped[str]=mapped_column(String(255))
+    role: Mapped[str]=mapped_column(String(30), index=True)
+    name: Mapped[str]=mapped_column(String(120))
+    created_at: Mapped[datetime]=mapped_column(DateTime, default=datetime.utcnow)
+
+class Farmer(Base):
+    __tablename__='farmers'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    user_id: Mapped[int|None]=mapped_column(ForeignKey('users.id'), nullable=True)
+    farmer_code: Mapped[str]=mapped_column(String(40), unique=True)
+    name: Mapped[str]=mapped_column(String(120))
+    phone: Mapped[str]=mapped_column(String(30))
+    village: Mapped[str]=mapped_column(String(120))
+    lat: Mapped[float]=mapped_column(Float)
+    lon: Mapped[float]=mapped_column(Float)
+
+class Customer(Base):
+    __tablename__='customers'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    user_id: Mapped[int|None]=mapped_column(ForeignKey('users.id'), nullable=True)
+    name: Mapped[str]=mapped_column(String(120))
+    address: Mapped[str]=mapped_column(String(220))
+    lat: Mapped[float]=mapped_column(Float)
+    lon: Mapped[float]=mapped_column(Float)
+
+class Driver(Base):
+    __tablename__='drivers'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    user_id: Mapped[int|None]=mapped_column(ForeignKey('users.id'), nullable=True)
+    driver_code: Mapped[str]=mapped_column(String(40), unique=True)
+    name: Mapped[str]=mapped_column(String(120))
+    available: Mapped[bool]=mapped_column(Boolean, default=True)
+    lat: Mapped[float]=mapped_column(Float)
+    lon: Mapped[float]=mapped_column(Float)
+
+class CollectionCentre(Base):
+    __tablename__='collection_centres'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    name: Mapped[str]=mapped_column(String(150))
+    lat: Mapped[float]=mapped_column(Float)
+    lon: Mapped[float]=mapped_column(Float)
+    capacity_kg: Mapped[float]=mapped_column(Float, default=5000)
+
+class PackageCentre(Base):
+    __tablename__='package_centres'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    name: Mapped[str]=mapped_column(String(150))
+    lat: Mapped[float]=mapped_column(Float)
+    lon: Mapped[float]=mapped_column(Float)
+    capacity_kg: Mapped[float]=mapped_column(Float, default=10000)
+
+class CityHub(Base):
+    __tablename__='city_hubs'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    name: Mapped[str]=mapped_column(String(150))
+    lat: Mapped[float]=mapped_column(Float)
+    lon: Mapped[float]=mapped_column(Float)
+
+class Vehicle(Base):
+    __tablename__='vehicles'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    vehicle_code: Mapped[str]=mapped_column(String(40), unique=True)
+    vehicle_type: Mapped[str]=mapped_column(String(80))
+    capacity_kg: Mapped[float]=mapped_column(Float)
+    refrigerated: Mapped[bool]=mapped_column(Boolean, default=False)
+    available: Mapped[bool]=mapped_column(Boolean, default=True)
+    lat: Mapped[float]=mapped_column(Float)
+    lon: Mapped[float]=mapped_column(Float)
+
+class Commodity(Base):
+    __tablename__='commodities'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    slug: Mapped[str]=mapped_column(String(40), unique=True)
+    name: Mapped[str]=mapped_column(String(80))
+    shelf_life_days: Mapped[float]=mapped_column(Float)
+    min_temp_c: Mapped[float]=mapped_column(Float)
+    max_temp_c: Mapped[float]=mapped_column(Float)
+    base_price: Mapped[float]=mapped_column(Float)
+    freshness_sensitivity: Mapped[float]=mapped_column(Float)
+    urgency_factor: Mapped[float]=mapped_column(Float)
+
+class FarmerSupply(Base):
+    __tablename__='farmer_supply'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    farmer_id: Mapped[int]=mapped_column(ForeignKey('farmers.id'))
+    commodity_id: Mapped[int]=mapped_column(ForeignKey('commodities.id'))
+    quantity_kg: Mapped[float]=mapped_column(Float)
+    harvest_date: Mapped[date]=mapped_column(Date)
+    available_qty_kg: Mapped[float]=mapped_column(Float)
+
+class Order(Base):
+    __tablename__='orders'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    order_code: Mapped[str]=mapped_column(String(50), unique=True)
+    customer_id: Mapped[int]=mapped_column(ForeignKey('customers.id'))
+    status: Mapped[str]=mapped_column(String(40), default='CREATED', index=True)
+    delivery_address: Mapped[str]=mapped_column(String(220))
+    delivery_lat: Mapped[float]=mapped_column(Float)
+    delivery_lon: Mapped[float]=mapped_column(Float)
+    delivery_window: Mapped[str]=mapped_column(String(80), default='09:00-12:00')
+    total_amount: Mapped[float]=mapped_column(Float, default=0)
+    created_at: Mapped[datetime]=mapped_column(DateTime, default=datetime.utcnow)
+
+class OrderItem(Base):
+    __tablename__='order_items'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    order_id: Mapped[int]=mapped_column(ForeignKey('orders.id'))
+    commodity_id: Mapped[int]=mapped_column(ForeignKey('commodities.id'))
+    quantity_kg: Mapped[float]=mapped_column(Float)
+    unit_price: Mapped[float]=mapped_column(Float, default=0)
+    grade: Mapped[str]=mapped_column(String(1), default='A')
+
+class DemandAggregation(Base):
+    __tablename__='demand_aggregations'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    commodity_id: Mapped[int]=mapped_column(ForeignKey('commodities.id'))
+    demand_kg: Mapped[float]=mapped_column(Float)
+    available_supply_kg: Mapped[float]=mapped_column(Float)
+    fulfillment_pct: Mapped[float]=mapped_column(Float)
+    created_at: Mapped[datetime]=mapped_column(DateTime, default=datetime.utcnow)
+
+class ProduceLot(Base):
+    __tablename__='produce_lots'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    lot_code: Mapped[str]=mapped_column(String(60), unique=True)
+    farmer_id: Mapped[int]=mapped_column(ForeignKey('farmers.id'))
+    commodity_id: Mapped[int]=mapped_column(ForeignKey('commodities.id'))
+    quantity_kg: Mapped[float]=mapped_column(Float)
+    harvest_date: Mapped[date]=mapped_column(Date)
+    grade: Mapped[str]=mapped_column(String(1), default='A')
+    freshness_pct: Mapped[float]=mapped_column(Float, default=90)
+    remaining_life_days: Mapped[float]=mapped_column(Float, default=2)
+    temperature_c: Mapped[float]=mapped_column(Float, default=8)
+    status: Mapped[str]=mapped_column(String(40), default='AT_COLLECTION')
+    collection_centre_id: Mapped[int|None]=mapped_column(ForeignKey('collection_centres.id'))
+    package_centre_id: Mapped[int|None]=mapped_column(ForeignKey('package_centres.id'))
+    hub_id: Mapped[int|None]=mapped_column(ForeignKey('city_hubs.id'))
+
+class QualityInspection(Base):
+    __tablename__='quality_inspections'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    lot_id: Mapped[int]=mapped_column(ForeignKey('produce_lots.id'))
+    visual_quality: Mapped[float]=mapped_column(Float)
+    damage_pct: Mapped[float]=mapped_column(Float)
+    freshness: Mapped[float]=mapped_column(Float)
+    temperature_c: Mapped[float]=mapped_column(Float)
+    handling_delay_min: Mapped[float]=mapped_column(Float)
+    recommended_grade: Mapped[str]=mapped_column(String(1))
+    confirmed_grade: Mapped[str|None]=mapped_column(String(1), nullable=True)
+    created_at: Mapped[datetime]=mapped_column(DateTime, default=datetime.utcnow)
+
+class PriceUpdate(Base):
+    __tablename__='price_updates'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    order_item_id: Mapped[int]=mapped_column(ForeignKey('order_items.id'))
+    base_price: Mapped[float]=mapped_column(Float)
+    grade_adjustment: Mapped[float]=mapped_column(Float)
+    distance_cost: Mapped[float]=mapped_column(Float)
+    handling_cost: Mapped[float]=mapped_column(Float)
+    freshness_factor: Mapped[float]=mapped_column(Float)
+    final_price: Mapped[float]=mapped_column(Float)
+    created_at: Mapped[datetime]=mapped_column(DateTime, default=datetime.utcnow)
+
+class PickupTask(Base):
+    __tablename__='pickup_tasks'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    order_id: Mapped[int]=mapped_column(ForeignKey('orders.id'))
+    farmer_id: Mapped[int]=mapped_column(ForeignKey('farmers.id'))
+    driver_id: Mapped[int|None]=mapped_column(ForeignKey('drivers.id'), nullable=True)
+    vehicle_id: Mapped[int|None]=mapped_column(ForeignKey('vehicles.id'), nullable=True)
+    status: Mapped[str]=mapped_column(String(40), default='ASSIGNED')
+
+class PackageTask(Base):
+    __tablename__='package_tasks'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    lot_id: Mapped[int]=mapped_column(ForeignKey('produce_lots.id'))
+    package_centre_id: Mapped[int]=mapped_column(ForeignKey('package_centres.id'))
+    status: Mapped[str]=mapped_column(String(40), default='RECEIVED')
+
+class HubTask(Base):
+    __tablename__='hub_tasks'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    lot_id: Mapped[int]=mapped_column(ForeignKey('produce_lots.id'))
+    hub_id: Mapped[int]=mapped_column(ForeignKey('city_hubs.id'))
+    status: Mapped[str]=mapped_column(String(40), default='INBOUND')
+
+class DeliveryTask(Base):
+    __tablename__='delivery_tasks'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    order_id: Mapped[int]=mapped_column(ForeignKey('orders.id'))
+    driver_id: Mapped[int|None]=mapped_column(ForeignKey('drivers.id'), nullable=True)
+    vehicle_id: Mapped[int|None]=mapped_column(ForeignKey('vehicles.id'), nullable=True)
+    status: Mapped[str]=mapped_column(String(40), default='READY')
+    eta_min: Mapped[int]=mapped_column(Integer, default=30)
+
+class Route(Base):
+    __tablename__='routes'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    route_code: Mapped[str]=mapped_column(String(50), unique=True)
+    vehicle_id: Mapped[int|None]=mapped_column(ForeignKey('vehicles.id'), nullable=True)
+    distance_km: Mapped[float]=mapped_column(Float, default=0)
+    eta_min: Mapped[float]=mapped_column(Float, default=0)
+    status: Mapped[str]=mapped_column(String(40), default='PLANNED')
+
+class RouteStop(Base):
+    __tablename__='route_stops'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    route_id: Mapped[int]=mapped_column(ForeignKey('routes.id'))
+    sequence: Mapped[int]=mapped_column(Integer)
+    stop_type: Mapped[str]=mapped_column(String(30))
+    reference_id: Mapped[int]=mapped_column(Integer)
+    lat: Mapped[float]=mapped_column(Float)
+    lon: Mapped[float]=mapped_column(Float)
+
+class GPSLocation(Base):
+    __tablename__='gps_locations'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    driver_id: Mapped[int]=mapped_column(ForeignKey('drivers.id'))
+    route_id: Mapped[int|None]=mapped_column(ForeignKey('routes.id'), nullable=True)
+    lat: Mapped[float]=mapped_column(Float)
+    lon: Mapped[float]=mapped_column(Float)
+    speed_kmh: Mapped[float]=mapped_column(Float, default=0)
+    recorded_at: Mapped[datetime]=mapped_column(DateTime, default=datetime.utcnow)
+
+class Notification(Base):
+    __tablename__='notifications'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    user_id: Mapped[int|None]=mapped_column(ForeignKey('users.id'), nullable=True)
+    message: Mapped[str]=mapped_column(Text)
+    severity: Mapped[str]=mapped_column(String(20), default='info')
+    read: Mapped[bool]=mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime]=mapped_column(DateTime, default=datetime.utcnow)
+
+class Alert(Base):
+    __tablename__='alerts'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    alert_type: Mapped[str]=mapped_column(String(50))
+    message: Mapped[str]=mapped_column(Text)
+    severity: Mapped[str]=mapped_column(String(20), default='warning')
+    status: Mapped[str]=mapped_column(String(20), default='OPEN')
+    created_at: Mapped[datetime]=mapped_column(DateTime, default=datetime.utcnow)
+
+class Forecast(Base):
+    __tablename__='forecasts'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    commodity_id: Mapped[int]=mapped_column(ForeignKey('commodities.id'))
+    forecast_date: Mapped[date]=mapped_column(Date)
+    demand_kg: Mapped[float]=mapped_column(Float)
+    trend_pct: Mapped[float]=mapped_column(Float)
+    confidence_pct: Mapped[float]=mapped_column(Float)
+
+class FreshnessPrediction(Base):
+    __tablename__='freshness_predictions'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    lot_id: Mapped[int]=mapped_column(ForeignKey('produce_lots.id'))
+    freshness_pct: Mapped[float]=mapped_column(Float)
+    remaining_life_days: Mapped[float]=mapped_column(Float)
+    spoilage_risk: Mapped[str]=mapped_column(String(20))
+    urgency: Mapped[str]=mapped_column(String(20))
+    created_at: Mapped[datetime]=mapped_column(DateTime, default=datetime.utcnow)
+
+class VehicleMatch(Base):
+    __tablename__='vehicle_matches'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    order_id: Mapped[int]=mapped_column(ForeignKey('orders.id'))
+    vehicle_id: Mapped[int]=mapped_column(ForeignKey('vehicles.id'))
+    score: Mapped[float]=mapped_column(Float)
+    reason: Mapped[str]=mapped_column(Text)
+
+class AuditLog(Base):
+    __tablename__='audit_logs'
+    id: Mapped[int]=mapped_column(primary_key=True)
+    entity_type: Mapped[str]=mapped_column(String(50))
+    entity_id: Mapped[int]=mapped_column(Integer)
+    action: Mapped[str]=mapped_column(String(80))
+    details: Mapped[str]=mapped_column(Text)
+    created_at: Mapped[datetime]=mapped_column(DateTime, default=datetime.utcnow)
+
+
+
+==================== C:\KRISHI-MARG\backend\app\models\__init__.py ====================
+from .core import *
+
+
+
+==================== C:\KRISHI-MARG\backend\app\optimization\router.py ====================
+from ortools.constraint_solver import pywrapcp, routing_enums_pb2
+import math
+
+def optimize_route(stops):
+    # stops: [{name,lat,lon,demand_kg,time_window:[start,end]}], first is depot
+    if len(stops)<2: return {'order':list(range(len(stops))),'distance_km':0,'eta_min':0}
+    n=len(stops)
+    manager=pywrapcp.RoutingIndexManager(n,1,0)
+    routing=pywrapcp.RoutingModel(manager)
+    def dist(i,j):
+        a,b=stops[manager.IndexToNode(i)],stops[manager.IndexToNode(j)]
+        return int(math.hypot((a['lat']-b['lat'])*111,(a['lon']-b['lon'])*96)*1000)
+    idx=routing.RegisterTransitCallback(dist)
+    routing.SetArcCostEvaluatorOfAllVehicles(idx)
+    routing.AddDimension(idx,0,300000,True,'Distance')
+    params=pywrapcp.DefaultRoutingSearchParameters()
+    params.first_solution_strategy=routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+    params.local_search_metaheuristic=routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+    params.time_limit.seconds=2
+    sol=routing.SolveWithParameters(params)
+    if not sol: return {'order':list(range(n)),'distance_km':0,'eta_min':0}
+    index=routing.Start(0); order=[]; total=0
+    while not routing.IsEnd(index):
+        node=manager.IndexToNode(index); order.append(node)
+        nxt=sol.Value(routing.NextVar(index)); total+=routing.GetArcCostForVehicle(index,nxt,0); index=nxt
+    order.append(manager.IndexToNode(index))
+    distance_km=total/1000
+    return {'order':order,'distance_km':round(distance_km,1),'eta_min':round(distance_km/28*60+len(order)*4)}
+
+
+
+==================== C:\KRISHI-MARG\backend\app\optimization\__init__.py ====================
+
+
+
+==================== C:\KRISHI-MARG\backend\app\routers\ai.py ====================
+from fastapi import APIRouter,Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+from datetime import date
+from ..database import get_db
+from ..models import *
+from ..schemas.api import FreshnessIn
+from ..services.freshness import predict
+r=APIRouter(prefix='/api/ai',tags=['ai'])
+@r.post('/freshness')
+def freshness(data:FreshnessIn,db:Session=Depends(get_db)):
+    c=db.scalar(select(Commodity).where(Commodity.slug==data.commodity))
+    if not c: return {'error':'commodity not found'}
+    return predict(c,date.fromisoformat(data.harvest_date),data.temperature_c,data.handling_delay_min,data.storage_duration_days,data.grade)
+
+
+
+==================== C:\KRISHI-MARG\backend\app\routers\auth.py ====================
+from fastapi import APIRouter,Depends,HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+from ..database import get_db
+from ..models import User
+from ..schemas.api import LoginIn
+from ..services.auth import verify_password,make_token
+r=APIRouter(prefix='/api/auth',tags=['auth'])
+@r.post('/login')
+def login(data:LoginIn,db:Session=Depends(get_db)):
+    u=db.scalar(select(User).where(User.email==data.email))
+    if not u or not verify_password(data.password,u.password_hash): raise HTTPException(401,'Invalid credentials')
+    return {'access_token':make_token(u),'user':{'id':u.id,'name':u.name,'role':u.role,'email':u.email}}
+
+
+
+==================== C:\KRISHI-MARG\backend\app\routers\dashboard.py ====================
+from fastapi import APIRouter,Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import select,func
+from ..database import get_db
+from ..models import *
+from ..ai.forecast import forecast
+r=APIRouter(prefix='/api',tags=['dashboard'])
+@r.get('/kpis')
+def kpis(db:Session=Depends(get_db)):
+    return {'active_orders':db.scalar(select(func.count(Order.id)).where(Order.status.not_in(['DELIVERED','CANCELLED']))) or 0,'freshness_critical':db.scalar(select(func.count(FreshnessPrediction.id)).where(FreshnessPrediction.spoilage_risk=='HIGH')) or 0,'active_vehicles':db.scalar(select(func.count(Vehicle.id)).where(Vehicle.available==True)) or 0,'on_time_delivery':92,'demand_served':88,'empty_km':12.4,'cost_per_kg':4.8,'spoilage':3.2}
+@r.get('/commodities')
+def commodities(db:Session=Depends(get_db)):
+    return [{'id':c.id,'slug':c.slug,'name':c.name,'base_price':c.base_price,'shelf_life_days':c.shelf_life_days,'min_temp_c':c.min_temp_c,'max_temp_c':c.max_temp_c} for c in db.scalars(select(Commodity)).all()]
+@r.get('/forecast')
+def forecasts(db:Session=Depends(get_db)):
+    return [forecast(db,c) for c in db.scalars(select(Commodity)).all()]
+@r.get('/demand')
+def demand(db:Session=Depends(get_db)):
+    cm={c.id:c for c in db.scalars(select(Commodity)).all()}; rows=[]
+    for c in cm.values():
+        d=db.scalar(select(func.coalesce(func.sum(OrderItem.quantity_kg),0)).where(OrderItem.commodity_id==c.id)) or 0
+        s=db.scalar(select(func.coalesce(func.sum(FarmerSupply.available_qty_kg),0)).where(FarmerSupply.commodity_id==c.id)) or 0
+        rows.append({'commodity':c.name,'demand_kg':float(d),'supply_kg':float(s),'fulfillment_pct':round(min(100,(s/max(d,1))*100),1)})
+    return rows
+@r.get('/activity')
+def activity(db:Session=Depends(get_db)):
+    return [{'time':a.created_at.strftime('%H:%M'),'message':a.details or a.action} for a in db.scalars(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(12)).all()]
+
+@r.get('/notifications')
+def notifications(db:Session=Depends(get_db)):
+    return [{'id':n.id,'message':n.message,'severity':n.severity,'read':n.read,'created_at':n.created_at.isoformat()} for n in db.scalars(select(Notification).order_by(Notification.created_at.desc()).limit(30)).all()]
+@r.get('/alerts')
+def alerts(db:Session=Depends(get_db)):
+    return [{'id':a.id,'type':a.alert_type,'message':a.message,'severity':a.severity,'status':a.status,'created_at':a.created_at.isoformat()} for a in db.scalars(select(Alert).order_by(Alert.created_at.desc()).limit(30)).all()]
+
+
+
+==================== C:\KRISHI-MARG\backend\app\routers\demo.py ====================
+from fastapi import APIRouter,Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+from ..database import get_db
+from ..models import *
+from ..services.notify import notify
+from ..services.workflow import transition
+from ..optimization.router import optimize_route
+r=APIRouter(prefix='/api/demo',tags=['demo'])
+@r.post('/run')
+def run(db:Session=Depends(get_db)):
+    o=db.scalar(select(Order).order_by(Order.id.desc()));
+    if not o: return {'message':'Create a demo order first','steps':[]}
+    steps=[]
+    # Valid transitions are applied in sequence where possible.
+    for s in ['AGGREGATING','MATCHED','PICKUP_ASSIGNED','PICKED_UP','AT_COLLECTION','INSPECTED','PACKED','AT_PACKAGE_CENTRE','AT_HUB','OUT_FOR_DELIVERY','DELIVERED']:
+        if o.status==s: continue
+        if s in {'AGGREGATING','MATCHED','PICKUP_ASSIGNED','PICKED_UP','AT_COLLECTION','INSPECTED','PACKED','AT_PACKAGE_CENTRE','AT_HUB','OUT_FOR_DELIVERY','DELIVERED'}:
+            try: transition(o,s); steps.append(s)
+            except Exception: pass
+    notify(db,f'Demo journey completed for {o.order_code}.'); db.commit(); return {'order_code':o.order_code,'status':o.status,'steps':steps}
+
+
+
+==================== C:\KRISHI-MARG\backend\app\routers\map.py ====================
+from fastapi import APIRouter,Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+from ..database import get_db
+from ..models import *
+r=APIRouter(prefix='/api/map',tags=['map'])
+@r.get('/locations')
+def locations(db:Session=Depends(get_db)):
+    out=[]
+    for cls,typ in [(Farmer,'farmer'),(CollectionCentre,'collection'),(PackageCentre,'package'),(CityHub,'hub'),(Driver,'driver'),(Customer,'customer')]:
+        for x in db.scalars(select(cls)).all():
+            name=getattr(x,'name',getattr(x,'farmer_code',getattr(x,'driver_code','Location')))
+            out.append({'type':typ,'id':x.id,'name':name,'lat':x.lat,'lon':x.lon,'status':getattr(x,'available',None)})
+    return out
+
+
+
+==================== C:\KRISHI-MARG\backend\app\routers\operations.py ====================
+from fastapi import APIRouter,Depends,HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+from datetime import date
+from ..database import get_db
+from ..models import *
+from ..schemas.api import GradeIn
+from ..services.freshness import predict
+from ..services.notify import notify,alert
+from ..services.pricing import calculate
+from ..services.matching import match_vehicles
+from ..optimization.router import optimize_route
+r=APIRouter(prefix='/api/operations',tags=['operations'])
+@r.post('/aggregate')
+def aggregate(db:Session=Depends(get_db)):
+    out=[]
+    for c in db.scalars(select(Commodity)).all():
+        demand=sum(x.quantity_kg for x in db.scalars(select(OrderItem).where(OrderItem.commodity_id==c.id)).all())
+        supply=sum(x.available_qty_kg for x in db.scalars(select(FarmerSupply).where(FarmerSupply.commodity_id==c.id)).all())
+        a=DemandAggregation(commodity_id=c.id,demand_kg=demand,available_supply_kg=supply,fulfillment_pct=min(100,supply/max(demand,1)*100)); db.add(a); out.append({'commodity':c.slug,'demand_kg':demand,'supply_kg':supply,'fulfillment_pct':a.fulfillment_pct})
+    notify(db,'Demand aggregation completed across all four commodities.'); db.commit(); return out
+@r.post('/match-farmer')
+def match_farmer(db:Session=Depends(get_db)):
+    tomato=db.scalar(select(Commodity).where(Commodity.slug=='tomato')); supply=db.scalar(select(FarmerSupply).where(FarmerSupply.commodity_id==tomato.id).order_by(FarmerSupply.available_qty_kg.desc())); farmer=db.get(Farmer,supply.farmer_id) if supply else None
+    if not farmer: raise HTTPException(404,'No supply')
+    notify(db,f'Farmer {farmer.farmer_code} matched for tomato demand.'); db.commit(); return {'farmer_id':farmer.id,'farmer_code':farmer.farmer_code,'quantity_kg':supply.available_qty_kg}
+@r.post('/grade/{lot_id}')
+def grade(lot_id:int,data:GradeIn,db:Session=Depends(get_db)):
+    lot=db.get(ProduceLot,lot_id)
+    if not lot: raise HTTPException(404,'Lot not found')
+    c=db.get(Commodity,lot.commodity_id); rec='A' if data.visual_quality>=85 and data.damage_pct<=5 and data.freshness>=80 else 'B' if data.visual_quality>=65 and data.damage_pct<=15 and data.freshness>=55 else 'C'
+    confirmed=data.confirmed_grade or rec; old=lot.grade; lot.grade=confirmed
+    p= predict(c,lot.harvest_date,data.temperature_c,data.handling_delay_min,0,confirmed); lot.freshness_pct=p['freshness_pct']; lot.remaining_life_days=p['remaining_life_days']
+    db.add(QualityInspection(lot_id=lot.id,visual_quality=data.visual_quality,damage_pct=data.damage_pct,freshness=data.freshness,temperature_c=data.temperature_c,handling_delay_min=data.handling_delay_min,recommended_grade=rec,confirmed_grade=confirmed)); db.add(FreshnessPrediction(lot_id=lot.id,**p))
+    if old!=confirmed: notify(db,f'Grade changed from {old} to {confirmed}. Final price recalculation triggered.',severity='warning'); db.add(AuditLog(entity_type='lot',entity_id=lot.id,action='GRADE_CHANGE',details=f'{old}->{confirmed}'))
+    db.commit(); return {'recommended_grade':rec,'confirmed_grade':confirmed,'freshness':p}
+@r.get('/vehicle-match/{order_id}')
+def vehicle_match(order_id:int,db:Session=Depends(get_db)):
+    o=db.get(Order,order_id)
+    if not o: raise HTTPException(404,'Order not found')
+    item=db.scalar(select(OrderItem).where(OrderItem.order_id==o.id)); c=db.get(Commodity,item.commodity_id); matches=match_vehicles(db.scalars(select(Vehicle)).all(),item.quantity_kg,c.slug,'PRIORITY',(17.39,78.49),(o.delivery_lat,o.delivery_lon));
+    return [{'vehicle_id':v.id,'vehicle_code':v.vehicle_code,'score':score,'reason':reason} for v,score,reason in matches[:5]]
+@r.post('/route')
+def route(db:Session=Depends(get_db)):
+    hub=db.scalar(select(CityHub)); cust=db.scalar(select(Customer)); pc=db.scalar(select(PackageCentre));
+    stops=[{'name':hub.name,'lat':hub.lat,'lon':hub.lon,'demand_kg':0},{'name':pc.name,'lat':pc.lat,'lon':pc.lon,'demand_kg':0},{'name':cust.name,'lat':cust.lat,'lon':cust.lon,'demand_kg':300}]
+    result=optimize_route(stops); v=db.scalar(select(Vehicle).where(Vehicle.available==True)); route=Route(route_code=f'KM-R-{db.query(Route).count()+1:04d}',vehicle_id=v.id if v else None,distance_km=result['distance_km'],eta_min=result['eta_min']); db.add(route); db.flush()
+    for seq,idx in enumerate(result['order']):
+        s=stops[idx]; db.add(RouteStop(route_id=route.id,sequence=seq,stop_type='STOP',reference_id=idx,lat=s['lat'],lon=s['lon']))
+    db.commit(); return {'route_id':route.id,'route_code':route.route_code,'distance_km':route.distance_km,'eta_min':route.eta_min,'stops':[stops[i] for i in result['order']]}
+
+@r.post('/price-preview')
+def price_preview(commodity:str,grade:str='A',quantity_kg:float=100,distance_km:float=8,handling:float=3,freshness_pct:float=90,db:Session=Depends(get_db)):
+    c=db.scalar(select(Commodity).where(Commodity.slug==commodity))
+    if not c: raise HTTPException(404,'Commodity not found')
+    return calculate(c.base_price,grade,distance_km,handling,freshness_pct)
+
+
+
+==================== C:\KRISHI-MARG\backend\app\routers\orders.py ====================
+from fastapi import APIRouter,Depends,HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import select,func
+from ..database import get_db
+from ..models import *
+from ..schemas.api import OrderCreate
+from ..services.workflow import transition
+from ..services.notify import notify
+from ..services.pricing import calculate
+r=APIRouter(prefix='/api/orders',tags=['orders'])
+
+def commodity_map(db): return {c.slug:c for c in db.scalars(select(Commodity)).all()}
+@r.post('')
+def create_order(data:OrderCreate,db:Session=Depends(get_db)):
+    customer=db.scalar(select(Customer).limit(1))
+    if not customer: raise HTTPException(400,'Seed data required')
+    o=Order(order_code=f'KM-ORD-{1000+db.query(Order).count()+1}',customer_id=customer.id,delivery_address=data.delivery_address,delivery_lat=data.delivery_lat,delivery_lon=data.delivery_lon,delivery_window=data.delivery_window)
+    db.add(o); db.flush(); cm=commodity_map(db); total=0
+    for item in data.items:
+        c=cm.get(item.commodity)
+        if not c: raise HTTPException(400,f'Unsupported commodity: {item.commodity}')
+        p=calculate(c.base_price,'A',8,3,92)
+        oi=OrderItem(order_id=o.id,commodity_id=c.id,quantity_kg=item.quantity_kg,unit_price=p['final_price'],grade='A'); db.add(oi); total+=p['final_price']*item.quantity_kg
+    o.total_amount=round(total,2); transition(o,'AGGREGATING'); notify(db,f'{data.items[0].commodity.title()} demand aggregated to {sum(i.quantity_kg for i in data.items):.0f} kg.')
+    db.commit(); db.refresh(o); return {'id':o.id,'order_code':o.order_code,'status':o.status,'total_amount':o.total_amount}
+@r.get('')
+def list_orders(db:Session=Depends(get_db)):
+    rows=db.scalars(select(Order).order_by(Order.created_at.desc()).limit(50)).all()
+    out=[]
+    for o in rows:
+        items=db.scalars(select(OrderItem).where(OrderItem.order_id==o.id)).all(); out.append({'id':o.id,'order_code':o.order_code,'status':o.status,'quantity_kg':sum(i.quantity_kg for i in items),'total_amount':o.total_amount,'delivery_address':o.delivery_address})
+    return out
+@r.post('/{order_id}/transition/{status}')
+def order_transition(order_id:int,status:str,db:Session=Depends(get_db)):
+    o=db.get(Order,order_id)
+    if not o: raise HTTPException(404,'Order not found')
+    transition(o,status); notify(db,f'Order {o.order_code} moved to {status}.'); db.add(AuditLog(entity_type='order',entity_id=o.id,action='STATUS_CHANGE',details=status)); db.commit(); return {'status':o.status}
+
+
+
+==================== C:\KRISHI-MARG\backend\app\routers\traceability.py ====================
+from fastapi import APIRouter,Depends,HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+from ..database import get_db
+from ..models import *
+import qrcode,io,base64
+r=APIRouter(prefix='/api/traceability',tags=['traceability'])
+@r.get('/{lot_code}')
+def trace(lot_code:str,db:Session=Depends(get_db)):
+    lot=db.scalar(select(ProduceLot).where(ProduceLot.lot_code==lot_code))
+    if not lot: raise HTTPException(404,'Lot not found')
+    c=db.get(Commodity,lot.commodity_id); f=db.get(Farmer,lot.farmer_id); cc=db.get(CollectionCentre,lot.collection_centre_id) if lot.collection_centre_id else None; pc=db.get(PackageCentre,lot.package_centre_id) if lot.package_centre_id else None; hub=db.get(CityHub,lot.hub_id) if lot.hub_id else None
+    payload={'lot_id':lot.lot_code,'farmer':f.farmer_code,'commodity':c.name,'quantity_kg':lot.quantity_kg,'harvest_date':str(lot.harvest_date),'grade':lot.grade,'freshness_pct':lot.freshness_pct,'collection':cc.name if cc else None,'package_centre':pc.name if pc else None,'hub':hub.name if hub else None,'status':lot.status}
+    return payload
+@r.get('/{lot_code}/qr')
+def qr(lot_code:str):
+    img=qrcode.make(f'/traceability/{lot_code}'); b=io.BytesIO(); img.save(b,format='PNG'); return {'data_url':'data:image/png;base64,'+base64.b64encode(b.getvalue()).decode()}
+
+
+
+==================== C:\KRISHI-MARG\backend\app\routers\__init__.py ====================
+
+
+
+==================== C:\KRISHI-MARG\backend\app\schemas\api.py ====================
+from pydantic import BaseModel, Field
+from typing import Optional
+
+class LoginIn(BaseModel):
+    email: str
+    password: str
+
+class OrderItemIn(BaseModel):
+    commodity: str
+    quantity_kg: float = Field(gt=0)
+
+class OrderCreate(BaseModel):
+    items: list[OrderItemIn]
+    delivery_address: str
+    delivery_lat: float
+    delivery_lon: float
+    delivery_window: str = '09:00-12:00'
+
+class GradeIn(BaseModel):
+    visual_quality: float = Field(ge=0, le=100)
+    damage_pct: float = Field(ge=0, le=100)
+    freshness: float = Field(ge=0, le=100)
+    temperature_c: float
+    handling_delay_min: float = Field(ge=0)
+    confirmed_grade: Optional[str] = None
+
+class FreshnessIn(BaseModel):
+    commodity: str
+    harvest_date: str
+    temperature_c: float
+    handling_delay_min: float
+    storage_duration_days: float
+    grade: str = 'A'
+
+class LocationIn(BaseModel):
+    driver_id: int
+    lat: float
+    lon: float
+    speed_kmh: float = 25
+
+class DemoActionIn(BaseModel):
+    action: str
+
+
+
+==================== C:\KRISHI-MARG\backend\app\schemas\__init__.py ====================
+
+
+
+==================== C:\KRISHI-MARG\backend\app\seed\seed.py ====================
+from datetime import date,timedelta
+from sqlalchemy import select
+from ..database import Base,engine,SessionLocal
+from ..models import *
+from ..services.auth import hash_password
+Base.metadata.create_all(bind=engine)
+
+def seed():
+    db=SessionLocal()
+    try:
+        if db.scalar(select(User).limit(1)): print('Seed already exists'); return
+        roles=[('admin@krishimarg.local','admin','Aarav Mehta'),('farmer@krishimarg.local','farmer','Ramesh Kumar'),('customer@krishimarg.local','customer','Ananya Rao'),('driver@krishimarg.local','driver','Ramesh Driver'),('collection@krishimarg.local','collection','Priya Sharma'),('package@krishimarg.local','package','Suresh R.'),('hub@krishimarg.local','hub','Kiran Hub Manager')]
+        users=[]
+        for email,role,name in roles:
+            u=User(email=email,password_hash=hash_password('Krishi@123'),role=role,name=name); db.add(u); users.append(u)
+        db.flush()
+        commodities=[('onion','Onion',12,5,12,28,0.65,0.9),('tomato','Tomato',7,8,14,36,0.9,1.1),('potato','Potato',18,6,18,24,0.45,0.7),('spinach','Spinach',3,2,8,42,1.2,1.5)]
+        for x in commodities: db.add(Commodity(slug=x[0],name=x[1],shelf_life_days=x[2],min_temp_c=x[3],max_temp_c=x[4],base_price=x[5],freshness_sensitivity=x[6],urgency_factor=x[7]))
+        db.flush(); cm={c.slug:c for c in db.scalars(select(Commodity)).all()}
+        coords=[('Shamshabad',17.2510,78.4290),('LB Nagar',17.3457,78.5522),('Kukatpally',17.4849,78.4138),('Gachibowli',17.4401,78.3489),('Uppal',17.4062,78.5591),('Medchal',17.6300,78.4810),('Secunderabad',17.4399,78.4983),('Miyapur',17.4969,78.3498),('Kompally',17.5440,78.4880),('Nanakramguda',17.4145,78.3420)]
+        farmers=[]
+        for i,(place,lat,lon) in enumerate(coords,1):
+            f=Farmer(user_id=users[1].id if i==1 else None,farmer_code=f'KM-FMR-2026-{i:04d}',name=['Ramesh Kumar','Savitri Devi','Ravi Naik','Lakshmi Rao','Mahesh Reddy'][i%5],phone=f'+91 98765 {43000+i:05d}',village=place,lat=lat,lon=lon); db.add(f); farmers.append(f)
+        db.flush()
+        for i,f in enumerate(farmers):
+            for j,slug in enumerate(['tomato','onion','potato','spinach']):
+                qty=120+(i*23)+(j*40); db.add(FarmerSupply(farmer_id=f.id,commodity_id=cm[slug].id,quantity_kg=qty,available_qty_kg=qty,harvest_date=date.today()-timedelta(days=(j%3))))
+        cust_coords=[(17.385,78.4867),(17.452,78.367),(17.475,78.430),(17.350,78.580),(17.525,78.400),(17.420,78.520),(17.460,78.500),(17.390,78.350),(17.510,78.470),(17.320,78.450)]
+        for i,(lat,lon) in enumerate(cust_coords,1): db.add(Customer(user_id=users[2].id if i==1 else None,name=f'Customer {i}',address=f'Hyderabad Delivery Zone {i}',lat=lat,lon=lon))
+        for i,(place,lat,lon) in enumerate(coords[:8],1): db.add(Driver(user_id=users[3].id if i==1 else None,driver_code=f'KM-DRV-{i:03d}',name=f'Driver {i}',available=True,lat=lat,lon=lon))
+        for i,(place,lat,lon) in enumerate(coords[:3],1): db.add(CollectionCentre(name=f'KM Collection â€“ {place}',lat=lat,lon=lat and lon,capacity_kg=5000))
+        db.add(PackageCentre(name='KM Packhouse â€“ Hyderabad',lat=17.4480,lon=78.3910,capacity_kg=12000)); db.add(PackageCentre(name='KM Packhouse â€“ Medchal',lat=17.6300,lon=78.4810,capacity_kg=12000))
+        db.add(CityHub(name='Hyderabad Central Hub',lat=17.3850,lon=78.4867)); db.add(CityHub(name='West Hyderabad Hub',lat=17.4401,lon=78.3489))
+        for i in range(1,11): db.add(Vehicle(vehicle_code=f'KM-VH-{i:03d}',vehicle_type=['Mini Truck','Tata Ace','Reefer Van'][i%3],capacity_kg=[500,800,1200][i%3],refrigerated=i%3==2,available=True,lat=coords[i%10][1],lon=coords[i%10][2]))
+        db.flush(); customer=db.scalar(select(Customer));
+        o=Order(order_code='KM-DEMO-001',customer_id=customer.id,status='CREATED',delivery_address=customer.address,delivery_lat=customer.lat,delivery_lon=customer.lon,delivery_window='09:00-12:00')
+        db.add(o); db.flush(); db.add(OrderItem(order_id=o.id,commodity_id=cm['tomato'].id,quantity_kg=300,unit_price=38,grade='A')); db.add(OrderItem(order_id=o.id,commodity_id=cm['tomato'].id,quantity_kg=200,unit_price=38,grade='A'))
+        farmer=farmers[0]; cc=db.scalar(select(CollectionCentre)); pc=db.scalar(select(PackageCentre)); hub=db.scalar(select(CityHub)); lot=ProduceLot(lot_code='KM-LOT-2026-00421',farmer_id=farmer.id,commodity_id=cm['tomato'].id,quantity_kg=600,harvest_date=date.today(),grade='A',freshness_pct=92,remaining_life_days=6,temperature_c=11,collection_centre_id=cc.id,package_centre_id=pc.id,hub_id=hub.id,status='AT_COLLECTION'); db.add(lot)
+        db.add(AuditLog(entity_type='demo',entity_id=o.id,action='DEMO_READY',details='Tomato order 500 kg staged for end-to-end demo'))
+        db.commit(); print('Seed complete. Password for all demo users: Krishi@123')
+    finally: db.close()
+if __name__=='__main__': seed()
+
+
+
+==================== C:\KRISHI-MARG\backend\app\seed\__init__.py ====================
+
+
+
+==================== C:\KRISHI-MARG\backend\app\services\auth.py ====================
+import bcrypt, jwt
+from datetime import datetime,timedelta,timezone
+from fastapi import HTTPException
+from sqlalchemy import select
+from ..config import settings
+from ..models import User
+
+def hash_password(password): return bcrypt.hashpw(password.encode(),bcrypt.gensalt()).decode()
+def verify_password(password, hashed): return bcrypt.checkpw(password.encode(),hashed.encode())
+def make_token(user): return jwt.encode({'sub':str(user.id),'role':user.role,'exp':datetime.now(timezone.utc)+timedelta(hours=12)},settings.jwt_secret,algorithm='HS256')
+def user_from_token(db, token):
+    try:
+        p=jwt.decode(token,settings.jwt_secret,algorithms=['HS256']); u=db.get(User,int(p['sub']))
+        if not u: raise Exception()
+        return u
+    except Exception: raise HTTPException(401,'Invalid or expired token')
+
+
+
+==================== C:\KRISHI-MARG\backend\app\services\freshness.py ====================
+from datetime import date
+from ..models import Commodity
+
+def predict(commodity: Commodity, harvest_date: date, temperature_c: float, handling_delay_min: float, storage_duration_days: float, grade: str):
+    age=(date.today()-harvest_date).days + storage_duration_days + handling_delay_min/1440
+    temp_mid=(commodity.min_temp_c+commodity.max_temp_c)/2
+    temp_penalty=max(0, abs(temperature_c-temp_mid)-2)*commodity.freshness_sensitivity*4
+    age_penalty=(age/max(commodity.shelf_life_days,0.1))*72*commodity.freshness_sensitivity
+    grade_penalty={'A':0,'B':8,'C':18}.get(grade,10)
+    freshness=max(0,min(100,100-age_penalty-temp_penalty-grade_penalty))
+    remaining=max(0, commodity.shelf_life_days-age)
+    risk='LOW' if freshness>=75 else 'MEDIUM' if freshness>=50 else 'HIGH'
+    urgency='NORMAL' if remaining>2 else 'PRIORITY' if remaining>1 else 'IMMEDIATE'
+    return {'freshness_pct':round(freshness,1),'remaining_life_days':round(remaining,2),'spoilage_risk':risk,'urgency':urgency}
+
+
+
+==================== C:\KRISHI-MARG\backend\app\services\matching.py ====================
+import math
+
+def km(a,b,c,d):
+    return math.hypot((a-c)*111,(b-d)*96)
+
+def match_vehicles(vehicles, order_qty, commodity, urgency, origin, destination):
+    out=[]
+    for v in vehicles:
+        if not v.available or v.capacity_kg<order_qty: continue
+        d=km(v.lat,v.lon,origin[0],origin[1])
+        score=100-min(35,d*2)-max(0,(v.capacity_kg-order_qty)/max(v.capacity_kg,1))*15
+        if urgency=='IMMEDIATE': score+=10
+        if commodity in {'spinach','tomato'} and v.refrigerated: score+=15
+        reason=f'{v.capacity_kg:.0f} kg capacity; {d:.1f} km away; '+('cold-chain compatible; ' if v.refrigerated else '')+'freshness urgency considered.'
+        out.append((v,round(score,1),reason))
+    return sorted(out,key=lambda x:x[1],reverse=True)
+
+
+
+==================== C:\KRISHI-MARG\backend\app\services\notify.py ====================
+from ..models import Notification, Alert
+
+def notify(db, message, user_id=None, severity='info'):
+    db.add(Notification(user_id=user_id,message=message,severity=severity))
+
+def alert(db, alert_type, message, severity='warning'):
+    db.add(Alert(alert_type=alert_type,message=message,severity=severity))
+
+
+
+==================== C:\KRISHI-MARG\backend\app\services\pricing.py ====================
+def calculate(base_price, grade, distance_km, handling, freshness_pct):
+    grade_adj={'A':1.08,'B':0.96,'C':0.78}.get(grade,1)
+    freshness_factor=1.05 if freshness_pct>=80 else 0.98 if freshness_pct>=60 else 0.90
+    distance_cost=distance_km*0.55
+    handling_cost=handling
+    final=(base_price*grade_adj + distance_cost + handling_cost)*freshness_factor
+    return {'base_price':round(base_price,2),'grade_adjustment':round(base_price*(grade_adj-1),2),'distance_cost':round(distance_cost,2),'handling_cost':round(handling_cost,2),'freshness_factor':round(freshness_factor,2),'final_price':round(final,2)}
+
+
+
+==================== C:\KRISHI-MARG\backend\app\services\workflow.py ====================
+from fastapi import HTTPException
+
+ORDER_STATES=['CREATED','AGGREGATING','MATCHED','PICKUP_ASSIGNED','PICKED_UP','AT_COLLECTION','INSPECTED','PACKED','AT_PACKAGE_CENTRE','AT_HUB','OUT_FOR_DELIVERY','DELIVERED','CANCELLED']
+ALLOWED={
+'CREATED':{'AGGREGATING','CANCELLED'},'AGGREGATING':{'MATCHED','CANCELLED'},'MATCHED':{'PICKUP_ASSIGNED','CANCELLED'},'PICKUP_ASSIGNED':{'PICKED_UP','CANCELLED'},'PICKED_UP':{'AT_COLLECTION'},'AT_COLLECTION':{'INSPECTED'},'INSPECTED':{'PACKED'},'PACKED':{'AT_PACKAGE_CENTRE'},'AT_PACKAGE_CENTRE':{'AT_HUB'},'AT_HUB':{'OUT_FOR_DELIVERY'},'OUT_FOR_DELIVERY':{'DELIVERED'},'DELIVERED':set(),'CANCELLED':set()}
+
+def transition(order, new_status):
+    if new_status not in ALLOWED.get(order.status,set()):
+        raise HTTPException(400, f'Invalid transition {order.status} -> {new_status}')
+    order.status=new_status
+
+
+
+==================== C:\KRISHI-MARG\backend\app\services\__init__.py ====================
+
+
+
+==================== C:\KRISHI-MARG\backend\app\websocket\tracking.py ====================
+from fastapi import WebSocket
+import asyncio, math
+from sqlalchemy import select
+from ..models import Driver, GPSLocation
+from ..database import SessionLocal
+clients=set()
+
+async def endpoint(ws:WebSocket):
+    await ws.accept(); clients.add(ws)
+    try:
+        while True:
+            await ws.receive_text()
+    except Exception: clients.discard(ws)
+
+async def broadcast_demo():
+    t=0
+    while True:
+        db=SessionLocal()
+        try:
+            drivers=db.scalars(select(Driver).limit(3)).all()
+            for i,d in enumerate(drivers):
+                d.lat=17.35 + 0.025*math.sin(t/12+i); d.lon=78.43 + 0.055*math.cos(t/14+i)
+                db.add(GPSLocation(driver_id=d.id,lat=d.lat,lon=d.lon,speed_kmh=28))
+                payload={'type':'driver_update','driver_id':d.id,'lat':d.lat,'lon':d.lon,'speed_kmh':28,'eta_min':max(5,28-int(t)%20)}
+                dead=[]
+                for c in clients:
+                    try: await c.send_json(payload)
+                    except Exception: dead.append(c)
+                for c in dead: clients.discard(c)
+            db.commit()
+        finally: db.close()
+        t+=1; await asyncio.sleep(2)
+
+
+
+==================== C:\KRISHI-MARG\backend\app\websocket\__init__.py ====================
+
