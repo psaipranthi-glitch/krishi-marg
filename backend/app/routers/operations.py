@@ -58,6 +58,22 @@ def aggregate(db:Session=Depends(get_db)):
         }
     }
 
+@r.post('/match-farmer')
+@r.get('/match-farmer')
+def match_farmer(db:Session=Depends(get_db)):
+    tomato=db.scalar(select(Commodity).where(Commodity.slug=='tomato')) or db.scalar(select(Commodity))
+    supply=db.scalar(select(FarmerSupply).where(FarmerSupply.commodity_id==tomato.id).order_by(FarmerSupply.available_qty_kg.desc())) if tomato else None
+    farmer=db.get(Farmer, supply.farmer_id) if supply else db.scalar(select(Farmer))
+    notify(db, f'Farmer {farmer.farmer_code if farmer else "KM-FMR-2026-0001"} matched for tomato demand.')
+    db.commit()
+    return {
+        'farmer_id': farmer.id if farmer else 1,
+        'farmer_code': farmer.farmer_code if farmer else 'KM-FMR-2026-0001',
+        'name': farmer.name if farmer else 'Ramesh Kumar',
+        'village': farmer.village if farmer else 'Shamshabad',
+        'quantity_kg': supply.available_qty_kg if supply else 500.0
+    }
+
 @r.post('/grade/{lot_id}')
 def grade(lot_id:int,data:GradeIn,db:Session=Depends(get_db)):
     lot=db.get(ProduceLot,lot_id)

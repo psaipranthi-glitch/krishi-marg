@@ -547,6 +547,16 @@ function CustomerMarketplace() {
 }
 
 function CustomerTracking() {
+  const [orders, setOrders] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.get("/api/orders").then(r => setOrders(r.data || [])).catch(() => {});
+  }, []);
+
+  const latest = orders[0] || { order_code: "KM-ORD-1001", quantity_kg: 500, status: "MATCHED", commodity: "tomato" };
+  const cropImg = getVegImage(latest.commodity);
+  const currentStep = latest.status === "DELIVERED" ? 4 : latest.status === "OUT_FOR_DELIVERY" ? 3 : latest.status === "AT_HUB" || latest.status === "PACKED" ? 2 : latest.status === "INSPECTED" || latest.status === "AT_COLLECTION" ? 1 : 0;
+
   return (
     <div className="page">
       <Header
@@ -555,6 +565,8 @@ function CustomerTracking() {
         subtitle="Follow your produce from harvest collection to your doorstep."
         icon={MapPinned}
       />
+
+      <InteractivePipelineTracker activeStatus={latest.status || "MATCHED"} />
 
       <div className="grid-2">
         <GlassCard>
@@ -568,18 +580,27 @@ function CustomerTracking() {
 
         <GlassCard>
           <div className="card-head">
-            <h3>Shipment status</h3>
+            <h3>Shipment status · {latest.order_code}</h3>
             <Truck size={18} />
+          </div>
+
+          <div style={{ display: "flex", gap: 12, margin: "12px 0", padding: 10, background: "rgba(255,255,255,0.8)", borderRadius: 10, border: "1px solid var(--line)" }}>
+            <img src={cropImg} alt="Crop" style={{ width: 60, height: 60, borderRadius: 10, objectFit: "cover" }} />
+            <div>
+              <b>{latest.order_code} · {latest.commodity_name || 'Tomato'}</b>
+              <span style={{ display: "block", fontSize: 12, color: "#666" }}>{latest.quantity_kg} kg · {latest.delivery_address || 'Hyderabad'}</span>
+              <small style={{ color: "var(--green)", fontWeight: 700 }}>Vehicle: {latest.assigned_vehicle?.vehicle_code || 'KM-VH-003'} ({latest.assigned_vehicle?.type || 'Mini Reefer'})</small>
+            </div>
           </div>
 
           <Steps
             items={["Pickup", "Collection", "Package", "Hub", "Delivery"]}
-            current={3}
+            current={currentStep}
           />
 
           <div className="ai-result">
             <Truck size={18} />
-            <b>ETA ~18 minutes</b>
+            <b>ETA ~18 minutes | Status: {latest.status || 'MATCHED'}</b>
             <span>Reefer Vehicle · Gachibowli Route</span>
           </div>
         </GlassCard>
