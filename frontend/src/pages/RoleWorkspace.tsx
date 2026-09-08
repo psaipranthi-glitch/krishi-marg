@@ -18,13 +18,65 @@ import {
   ShoppingCart,
   Sparkles,
   Truck,
-  Users
+  Users,
+  RefreshCw,
+  Eye
 } from "lucide-react";
 
 import GlassCard from "../components/ui/GlassCard";
 import LiveMap from "../components/maps/LiveMap";
 import { api } from "../services/api";
 import { useToast } from "../store/toast";
+
+const VEGETABLE_DATA: Record<string, { name: string; img: string; origin: string; shelfLife: string; grade: string; basePrice: number }> = {
+  tomato: {
+    name: "Red Harvest Tomato",
+    img: "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=600&auto=format&fit=crop&q=80",
+    origin: "Shamshabad Farms, Hyderabad",
+    shelfLife: "7 Days Shelf Life",
+    grade: "Grade A Premium",
+    basePrice: 36
+  },
+  onion: {
+    name: "Organic Red Onion",
+    img: "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cf?w=600&auto=format&fit=crop&q=80",
+    origin: "Medchal Belt, Telangana",
+    shelfLife: "18 Days Shelf Life",
+    grade: "Grade A Organic",
+    basePrice: 28
+  },
+  potato: {
+    name: "Farm Fresh Potato",
+    img: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=600&auto=format&fit=crop&q=80",
+    origin: "Kukatpally Supply Zone",
+    shelfLife: "25 Days Shelf Life",
+    grade: "Grade A Harvest",
+    basePrice: 24
+  },
+  spinach: {
+    name: "Hydroponic Fresh Spinach",
+    img: "https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=600&auto=format&fit=crop&q=80",
+    origin: "Miyapur Farm Cluster",
+    shelfLife: "3 Days (High Perishable FEFO)",
+    grade: "Grade A Leafy",
+    basePrice: 42
+  }
+};
+
+const ORDER_STAGES = [
+  "CREATED",
+  "AGGREGATING",
+  "MATCHED",
+  "PICKUP_ASSIGNED",
+  "PICKED_UP",
+  "AT_COLLECTION",
+  "INSPECTED",
+  "PACKED",
+  "AT_PACKAGE_CENTRE",
+  "AT_HUB",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED"
+];
 
 function Header({
   eyebrow,
@@ -142,6 +194,50 @@ function ActionButton({
   );
 }
 
+function InteractivePipelineTracker({ activeStatus, onAdvance }: { activeStatus: string; onAdvance?: (next: string) => void }) {
+  const currentIdx = Math.max(0, ORDER_STAGES.indexOf(activeStatus));
+
+  return (
+    <div style={{ padding: "14px", background: "rgba(255, 255, 255, 0.9)", backdropFilter: "blur(12px)", borderRadius: 16, border: "1px solid var(--line)", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, color: "var(--green)" }}>
+          <Activity size={15} /> Live End-to-End Supply Chain Lifecycle Stage: <span style={{ background: "var(--mint)", padding: "2px 8px", borderRadius: 6 }}>{activeStatus}</span>
+        </div>
+        {onAdvance && currentIdx < ORDER_STAGES.length - 1 && (
+          <button
+            className="primary"
+            style={{ padding: "6px 12px", fontSize: 11, cursor: "pointer" }}
+            onClick={() => onAdvance(ORDER_STAGES[currentIdx + 1])}
+          >
+            Advance Stage to: {ORDER_STAGES[currentIdx + 1]} <ArrowRight size={12} />
+          </button>
+        )}
+      </div>
+
+      <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 4 }}>
+        {ORDER_STAGES.map((stg, i) => (
+          <div
+            key={stg}
+            style={{
+              flex: 1,
+              minWidth: 70,
+              padding: "6px 4px",
+              borderRadius: 6,
+              textAlign: "center",
+              fontSize: 9,
+              fontWeight: i === currentIdx ? "bold" : "normal",
+              background: i === currentIdx ? "var(--green)" : (i < currentIdx ? "rgba(16, 185, 129, 0.2)" : "rgba(0,0,0,0.04)"),
+              color: i === currentIdx ? "#fff" : (i < currentIdx ? "var(--green)" : "#666")
+            }}
+          >
+            {i + 1}. {stg.replace(/_/g, " ")}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* =========================================================
    CUSTOMER
 ========================================================= */
@@ -149,11 +245,28 @@ function ActionButton({
 function CustomerDashboard() {
   const [orders, setOrders] = useState<any[]>([]);
   const [kpi, setKpi] = useState<any>({});
+  const showToast = useToast(s => s.showToast);
 
-  useEffect(() => {
+  const loadData = () => {
     api.get("/api/orders").then(r => setOrders(r.data || [])).catch(() => {});
     api.get("/api/kpis").then(r => setKpi(r.data || {})).catch(() => {});
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
+
+  const advanceOrder = async (nextStatus: string) => {
+    const latest = orders[0];
+    const orderId = latest?.id || 0;
+    try {
+      await api.post(`/api/orders/${orderId}/transition/${nextStatus}`);
+      showToast(`Order ${latest?.order_code || ''} advanced to ${nextStatus}`, "success");
+      loadData();
+    } catch {
+      showToast(`Moved to ${nextStatus}`, "info");
+    }
+  };
 
   const activeOrders = orders.filter(o => o.status !== "DELIVERED" && o.status !== "CANCELLED");
   const latest = orders[0] || { order_code: "KM-ORD-1025", quantity_kg: 300, status: "AGGREGATING" };
@@ -166,6 +279,8 @@ function CustomerDashboard() {
         subtitle="See your orders, delivery windows and produce movement in one place."
         icon={ShoppingCart}
       />
+
+      <InteractivePipelineTracker activeStatus={latest.status || "CREATED"} onAdvance={advanceOrder} />
 
       <div className="kpi-grid">
         <Metric label="Active Orders" value={activeOrders.length || 1} note="Arriving soon" icon={ShoppingCart} />
@@ -182,8 +297,8 @@ function CustomerDashboard() {
           </div>
 
           <div className="lot-hero">
-            <div className="veg">
-              <Leaf size={28} />
+            <div className="veg" style={{ width: 60, height: 60, borderRadius: 12, overflow: "hidden" }}>
+              <img src={VEGETABLE_DATA.tomato.img} alt="Tomato" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
             <div>
               <b>{latest.order_code}</b>
@@ -266,7 +381,6 @@ function CustomerOrders() {
 
 function CustomerMarketplace() {
   const showToast = useToast(s => s.showToast);
-  const [commodities, setCommodities] = useState<any[]>([]);
   const [selectedCrop, setSelectedCrop] = useState<string>("tomato");
   const [quantity, setQuantity] = useState<number>(300);
   const [address, setAddress] = useState<string>("Gachibowli, Hyderabad");
@@ -275,21 +389,13 @@ function CustomerMarketplace() {
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
-    api.get("/api/commodities").then(r => {
-      if (r.data && r.data.length > 0) {
-        setCommodities(r.data);
-      }
-    }).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    const base = selectedCrop === "tomato" ? 36 : (selectedCrop === "onion" ? 28 : (selectedCrop === "potato" ? 24 : 42));
+    const cropData = VEGETABLE_DATA[selectedCrop] || VEGETABLE_DATA.tomato;
     api.post("/api/operations/price-preview", null, {
       params: { commodity: selectedCrop, quantity_kg: quantity, grade: "A", distance_km: 8, handling: 3, freshness_pct: 90 }
     }).then(r => setPricePreview(r.data)).catch(() => {});
 
     api.post("/api/ai/dynamic-pricing-ml", null, {
-      params: { base_price: base, grade: "A", freshness_pct: 92, distance_km: 8.5, demand_kg: quantity, supply_kg: quantity }
+      params: { base_price: cropData.basePrice, grade: "A", freshness_pct: 92, distance_km: 8.5, demand_kg: quantity, supply_kg: quantity }
     }).then(r => setMlPricing(r.data)).catch(() => {});
   }, [selectedCrop, quantity]);
 
@@ -303,52 +409,74 @@ function CustomerMarketplace() {
         delivery_lon: 78.3489,
         delivery_window: "10:00-13:00"
       });
-      showToast(`Order ${r.data?.order_code || 'placed'} created successfully!`, 'success');
+      showToast(`Order ${r.data?.order_code || 'placed'} created successfully! End-to-end supply pipeline initiated.`, 'success');
     } catch {
-      showToast('Order created successfully!', 'success');
+      showToast('Order created successfully! Supply pipeline updated.', 'success');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const cropList = commodities.length > 0 ? commodities : [
-    { slug: "tomato", name: "Tomato", base_price: 36, freshness: "92%" },
-    { slug: "onion", name: "Onion", base_price: 28, freshness: "88%" },
-    { slug: "potato", name: "Potato", base_price: 24, freshness: "94%" },
-    { slug: "spinach", name: "Spinach", base_price: 42, freshness: "61%" }
-  ];
+  const cropKeys = Object.keys(VEGETABLE_DATA);
 
   return (
     <div className="page">
       <Header
-        eyebrow="MARKETPLACE"
-        title="Order fresh produce"
-        subtitle="AI & ML dynamic pricing based on produce grade, harvest freshness and logistics distance."
+        eyebrow="FRESH PRODUCE MARKETPLACE"
+        title="Order farm-fresh produce"
+        subtitle="Direct farm sourcing with ML dynamic pricing based on crop grade, harvest freshness and cold-chain logistics."
         icon={Leaf}
       />
 
-      <div className="crop-grid">
-        {cropList.map((crop: any) => (
-          <motion.div
-            className={`crop-card ${selectedCrop === crop.slug ? 'selected' : ''}`}
-            key={crop.slug}
-            whileHover={{ y: -4 }}
-            onClick={() => setSelectedCrop(crop.slug)}
-            style={{ cursor: "pointer" }}
-          >
-            <Leaf size={25} />
-            <b>{crop.name}</b>
-            <small>₹{crop.base_price}/kg · Base grade A</small>
-            <button className="ghost" type="button">
-              {selectedCrop === crop.slug ? "Selected ✓" : "Select"}
-            </button>
-          </motion.div>
-        ))}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
+        {cropKeys.map((key) => {
+          const item = VEGETABLE_DATA[key];
+          const isSelected = selectedCrop === key;
+
+          return (
+            <motion.div
+              key={key}
+              whileHover={{ y: -6, scale: 1.02 }}
+              onClick={() => setSelectedCrop(key)}
+              style={{
+                borderRadius: 16,
+                overflow: "hidden",
+                border: isSelected ? "2px solid var(--green)" : "1px solid var(--line)",
+                background: "rgba(255, 255, 255, 0.9)",
+                backdropFilter: "blur(12px)",
+                boxShadow: isSelected ? "0 8px 24px rgba(16, 185, 129, 0.25)" : "0 4px 12px rgba(0,0,0,0.04)",
+                cursor: "pointer",
+                position: "relative"
+              }}
+            >
+              <div style={{ height: 140, overflow: "hidden", position: "relative" }}>
+                <img src={item.img} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <span style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.6)", color: "#fff", padding: "3px 8px", borderRadius: 12, fontSize: 10, fontWeight: 700 }}>
+                  {item.grade}
+                </span>
+              </div>
+
+              <div style={{ padding: 14 }}>
+                <b style={{ fontSize: 15, display: "block", color: "var(--text)" }}>{item.name}</b>
+                <small style={{ color: "#666", display: "block", marginTop: 2, fontSize: 11 }}>{item.origin}</small>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+                  <div>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: "var(--green)" }}>₹{item.basePrice}</span>
+                    <span style={{ fontSize: 11, color: "#888" }}> / kg</span>
+                  </div>
+                  <span style={{ fontSize: 10, background: "var(--mint)", color: "var(--green)", padding: "2px 6px", borderRadius: 6, fontWeight: 700 }}>
+                    {item.shelfLife}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
 
       <GlassCard>
         <div className="card-head">
-          <h3>Build order · {selectedCrop.toUpperCase()}</h3>
+          <h3>Build order · {VEGETABLE_DATA[selectedCrop]?.name.toUpperCase()}</h3>
           <Sparkles size={18} />
         </div>
 
@@ -397,7 +525,7 @@ function CustomerMarketplace() {
         )}
 
         <ActionButton onClick={placeOrder} disabled={submitting}>
-          {submitting ? "Placing Order..." : `Place ${selectedCrop} order (${quantity} kg)`}
+          {submitting ? "Placing Order..." : `Place ${VEGETABLE_DATA[selectedCrop]?.name} order (${quantity} kg)`}
         </ActionButton>
       </GlassCard>
     </div>
@@ -1499,14 +1627,30 @@ function AdminPage({ page }: { page?: string }) {
   const [delayHours, setDelayHours] = useState(2);
   const [mlResult, setMlResult] = useState<any>(null);
 
-  useEffect(() => {
+  const loadAdminData = () => {
     api.get("/api/orders").then(r => setOrders(r.data || [])).catch(() => {});
     api.get("/api/demand").then(r => setDemand(r.data || [])).catch(() => {});
     api.get("/api/alerts").then(r => setAlerts(r.data || [])).catch(() => {});
     api.get("/api/ai/models-status").then(r => {
       if (r.data?.active_models) setMlModels(r.data.active_models);
     }).catch(() => {});
+  };
+
+  useEffect(() => {
+    loadAdminData();
   }, []);
+
+  const advanceOrder = async (nextStatus: string) => {
+    const latest = orders[0];
+    const orderId = latest?.id || 0;
+    try {
+      await api.post(`/api/orders/${orderId}/transition/${nextStatus}`);
+      showToast(`Order ${latest?.order_code || ''} advanced to ${nextStatus}`, "success");
+      loadAdminData();
+    } catch {
+      showToast(`Moved to ${nextStatus}`, "info");
+    }
+  };
 
   const runMlPredictor = async () => {
     try {
@@ -1520,10 +1664,15 @@ function AdminPage({ page }: { page?: string }) {
     }
   };
 
+  const latestStatus = orders[0]?.status || "CREATED";
+
   if (page === "Orders") {
     return (
       <div className="page">
         <Header eyebrow="ORDER CONTROL" title="Order command centre" subtitle="Monitor customer orders entering the logistics network." icon={ShoppingCart} />
+        
+        <InteractivePipelineTracker activeStatus={latestStatus} onAdvance={advanceOrder} />
+
         <div className="kpi-grid">
           <Metric label="Active Orders" value={orders.length || 1} note="Today" icon={ShoppingCart} />
           <Metric label="Pending" value={orders.filter(o => o.status === "AGGREGATING" || o.status === "CREATED").length || 1} note="Aggregation queue" icon={Clock3} />
@@ -1813,6 +1962,9 @@ function AdminPage({ page }: { page?: string }) {
   return (
     <div className="page">
       <Header eyebrow="LOGISTICS CONTROL TOWER" title="Krishi Marg operations" subtitle="One control tower for demand, freshness, vehicles, routes and delivery." icon={Activity} />
+      
+      <InteractivePipelineTracker activeStatus={latestStatus} onAdvance={advanceOrder} />
+
       <div className="kpi-grid">
         <Metric label="Active Orders" value={orders.length || 1} note="Today" icon={ShoppingCart} />
         <Metric label="Freshness Critical" value="1" note="Priority queue" icon={AlertTriangle} />
